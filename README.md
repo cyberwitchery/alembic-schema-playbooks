@@ -12,6 +12,7 @@ as a starting point for adapter mapping.
 - `arista-cloudvision.yaml` - device, interface, vlan, vrf, and segment model.
 - `infoblox.yaml` - ipam/dns/dhcp core objects.
 - `solarwinds-orion.yaml` - node, interface, volume, and alert inventory.
+- `netbox.yaml` - netbox-lite dcim/ipam/virtualization/circuits/extras/wireless.
 
 ## usage
 
@@ -36,8 +37,7 @@ ALEMBIC_STATE_BACKEND=local ALEMBIC_STATE_PATH=/tmp/alembic-state.json \
 
 ## notes
 
-- playbooks are intentionally compact and avoid duplicate relationships to the
-  same peer type to keep infrahub schema provisioning happy.
+- playbooks are intentionally compact and safe to provision into infrahub.
 - expand fields and relationships as needed for your environment.
 
 <hr/>

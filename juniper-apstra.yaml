@@ -53,7 +53,7 @@ schema:
       fields:
         name: { type: string, required: true }
         interface: { type: ref, target: apstra.interface }
-        peer_device: { type: string }
-        peer_interface: { type: string }
+        peer_device: { type: ref, target: apstra.device }
+        peer_interface: { type: ref, target: apstra.interface }
         speed: { type: int }
         status: { type: enum, values: [up, down, unknown] }

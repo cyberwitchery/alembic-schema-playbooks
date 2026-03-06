@@ -1,0 +1,547 @@
+# netbox schema playbook for alembic (netbox-lite)
+schema:
+  types:
+    tenancy.tenantgroup:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        parent: { type: ref, target: tenancy.tenantgroup }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    tenancy.tenant:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        group: { type: ref, target: tenancy.tenantgroup }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    dcim.region:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        parent: { type: ref, target: dcim.region }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    dcim.sitegroup:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        parent: { type: ref, target: dcim.sitegroup }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    dcim.site:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+        region: { type: ref, target: dcim.region }
+        group: { type: ref, target: dcim.sitegroup }
+        tenant: { type: ref, target: tenancy.tenant }
+        facility: { type: string }
+        time_zone: { type: string }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    dcim.location:
+      key:
+        site: { type: ref, target: dcim.site }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        site: { type: ref, target: dcim.site, required: true }
+        parent: { type: ref, target: dcim.location }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    dcim.rackgroup:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        site: { type: ref, target: dcim.site }
+        parent: { type: ref, target: dcim.rackgroup }
+        description: { type: text }
+
+    dcim.rack:
+      key:
+        site: { type: ref, target: dcim.site }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        site: { type: ref, target: dcim.site, required: true }
+        group: { type: ref, target: dcim.rackgroup }
+        location: { type: ref, target: dcim.location }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+        tenant: { type: ref, target: tenancy.tenant }
+        role: { type: ref, target: dcim.rackrole }
+        serial: { type: string }
+        asset_tag: { type: string }
+        u_height: { type: int }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    dcim.rackrole:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug }
+        color: { type: string }
+        description: { type: text }
+
+    dcim.manufacturer:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        description: { type: text }
+
+    dcim.devicetype:
+      key:
+        slug: { type: slug }
+      fields:
+        manufacturer: { type: ref, target: dcim.manufacturer }
+        model: { type: string }
+        slug: { type: slug, required: true }
+        part_number: { type: string }
+        u_height: { type: int }
+        is_full_depth: { type: bool }
+        tags: { type: list, item: { type: string } }
+        name: { type: string, required: true }
+
+    dcim.devicerole:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        color: { type: string }
+        description: { type: text }
+
+    dcim.platform:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        manufacturer: { type: ref, target: dcim.manufacturer }
+        description: { type: text }
+
+    dcim.virtualchassis:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        domain: { type: string }
+        master: { type: ref, target: dcim.device }
+
+    dcim.device:
+      key:
+        site: { type: ref, target: dcim.site }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        site: { type: ref, target: dcim.site, required: true }
+        location: { type: ref, target: dcim.location }
+        rack: { type: ref, target: dcim.rack }
+        position: { type: int }
+        tenant: { type: ref, target: tenancy.tenant }
+        role: { type: ref, target: dcim.devicerole }
+        device_type: { type: ref, target: dcim.devicetype, required: true }
+        platform: { type: ref, target: dcim.platform }
+        serial: { type: string }
+        asset_tag: { type: string }
+        status: { type: enum, values: [active, planned, staged, inventory, decommissioning, offline] }
+        virtual_chassis: { type: ref, target: dcim.virtualchassis }
+        vc_position: { type: int }
+        vc_priority: { type: int }
+        tags: { type: list, item: { type: string } }
+
+    dcim.modulebay:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        position: { type: string }
+        description: { type: text }
+
+    dcim.module:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        module_bay: { type: ref, target: dcim.modulebay }
+        module_type: { type: ref, target: dcim.moduletype }
+        serial: { type: string }
+        asset_tag: { type: string }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+
+    dcim.moduletype:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        manufacturer: { type: ref, target: dcim.manufacturer }
+        part_number: { type: string }
+        description: { type: text }
+
+    dcim.devicebay:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        installed_device: { type: ref, target: dcim.device }
+        description: { type: text }
+
+    dcim.inventoryitem:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        manufacturer: { type: ref, target: dcim.manufacturer }
+        part_id: { type: string }
+        serial: { type: string }
+        asset_tag: { type: string }
+        description: { type: text }
+
+    dcim.interface:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        type: { type: enum, values: [ethernet, lag, virtual, loopback, management, other] }
+        enabled: { type: bool }
+        mtu: { type: int }
+        mac_address: { type: mac }
+        description: { type: text }
+        parent: { type: ref, target: dcim.interface }
+        lag: { type: ref, target: dcim.interface }
+        tags: { type: list, item: { type: string } }
+
+    dcim.consoleport:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        type: { type: string }
+        description: { type: text }
+
+    dcim.consoleserverport:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        type: { type: string }
+        description: { type: text }
+
+    dcim.powerport:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        type: { type: string }
+        description: { type: text }
+
+    dcim.poweroutlet:
+      key:
+        device: { type: ref, target: dcim.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: dcim.device, required: true }
+        power_port: { type: ref, target: dcim.powerport }
+        feed_leg: { type: string }
+        type: { type: string }
+        description: { type: text }
+
+    dcim.powerpanel:
+      key:
+        site: { type: ref, target: dcim.site }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        site: { type: ref, target: dcim.site, required: true }
+        location: { type: ref, target: dcim.location }
+        description: { type: text }
+
+    dcim.powerfeed:
+      key:
+        power_panel: { type: ref, target: dcim.powerpanel }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        power_panel: { type: ref, target: dcim.powerpanel, required: true }
+        rack: { type: ref, target: dcim.rack }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+        type: { type: string }
+        supply: { type: string }
+        phase: { type: string }
+        voltage: { type: int }
+        amperage: { type: int }
+        max_utilization: { type: int }
+        description: { type: text }
+
+    ipam.rir:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        description: { type: text }
+
+    ipam.role:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        description: { type: text }
+
+    ipam.vrf:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        route_distinguisher: { type: string }
+        description: { type: text }
+        tenant: { type: ref, target: tenancy.tenant }
+        tags: { type: list, item: { type: string } }
+
+    ipam.routetarget:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        description: { type: text }
+
+    ipam.vrfroutetarget:
+      key:
+        vrf: { type: ref, target: ipam.vrf }
+        route_target: { type: ref, target: ipam.routetarget }
+      fields:
+        vrf: { type: ref, target: ipam.vrf, required: true }
+        route_target: { type: ref, target: ipam.routetarget, required: true }
+
+    ipam.aggregate:
+      key:
+        prefix: { type: prefix }
+      fields:
+        prefix: { type: prefix, required: true }
+        rir: { type: ref, target: ipam.rir }
+        status: { type: enum, values: [active, reserved, deprecated] }
+        description: { type: text }
+
+    ipam.prefix:
+      key:
+        prefix: { type: prefix }
+      fields:
+        prefix: { type: prefix, required: true }
+        site: { type: ref, target: dcim.site }
+        vrf: { type: ref, target: ipam.vrf }
+        tenant: { type: ref, target: tenancy.tenant }
+        vlan: { type: ref, target: ipam.vlan }
+        role: { type: ref, target: ipam.role }
+        status: { type: enum, values: [active, reserved, deprecated] }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    ipam.ipaddress:
+      key:
+        address: { type: ip_address }
+      fields:
+        address: { type: ip_address, required: true }
+        status: { type: enum, values: [active, reserved, deprecated] }
+        role: { type: enum, values: [loopback, management, secondary, anycast, vip, vrrp] }
+        assigned_object: { type: string }
+        tenant: { type: ref, target: tenancy.tenant }
+        dns_name: { type: string }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    ipam.vlangroup:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug }
+        description: { type: text }
+        site: { type: ref, target: dcim.site }
+
+    ipam.vlan:
+      key:
+        vid: { type: int }
+      fields:
+        vid: { type: int, required: true }
+        name: { type: string, required: true }
+        status: { type: enum, values: [active, reserved, deprecated] }
+        role: { type: ref, target: ipam.role }
+        tenant: { type: ref, target: tenancy.tenant }
+        group: { type: ref, target: ipam.vlangroup }
+        site: { type: ref, target: dcim.site }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    virtualization.clustergroup:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        description: { type: text }
+
+    virtualization.clustertype:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        description: { type: text }
+
+    virtualization.cluster:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        type: { type: ref, target: virtualization.clustertype, required: true }
+        group: { type: ref, target: virtualization.clustergroup }
+        site: { type: ref, target: dcim.site }
+        tenant: { type: ref, target: tenancy.tenant }
+        description: { type: text }
+
+    virtualization.virtualmachine:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        cluster: { type: ref, target: virtualization.cluster }
+        role: { type: ref, target: dcim.devicerole }
+        platform: { type: ref, target: dcim.platform }
+        tenant: { type: ref, target: tenancy.tenant }
+        status: { type: enum, values: [active, planned, staged, offline, decommissioning] }
+        vcpus: { type: int }
+        memory: { type: int }
+        disk: { type: int }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    virtualization.vminterface:
+      key:
+        virtual_machine: { type: ref, target: virtualization.virtualmachine }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        virtual_machine: { type: ref, target: virtualization.virtualmachine, required: true }
+        enabled: { type: bool }
+        mtu: { type: int }
+        mac_address: { type: mac }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    circuits.provider:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        account: { type: string }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    circuits.providernetwork:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        provider: { type: ref, target: circuits.provider }
+        description: { type: text }
+
+    circuits.circuittype:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        description: { type: text }
+
+    circuits.circuit:
+      key:
+        cid: { type: string }
+      fields:
+        cid: { type: string, required: true }
+        provider: { type: ref, target: circuits.provider, required: true }
+        type: { type: ref, target: circuits.circuittype, required: true }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+        tenant: { type: ref, target: tenancy.tenant }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    circuits.circuittermination:
+      key:
+        circuit: { type: ref, target: circuits.circuit }
+        term_side: { type: enum, values: [A, Z] }
+      fields:
+        circuit: { type: ref, target: circuits.circuit, required: true }
+        term_side: { type: enum, values: [A, Z], required: true }
+        site: { type: ref, target: dcim.site }
+        location: { type: ref, target: dcim.location }
+        provider_network: { type: ref, target: circuits.providernetwork }
+        port_speed: { type: int }
+        upstream_speed: { type: int }
+        description: { type: text }
+
+    extras.tag:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        description: { type: text }
+
+    wireless.wirelesslangroup:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        description: { type: text }
+
+    wireless.wirelesslan:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        group: { type: ref, target: wireless.wirelesslangroup }
+        ssid: { type: string }
+        status: { type: enum, values: [active, planned, staged, decommissioning] }
+        vlan: { type: ref, target: ipam.vlan }
+        description: { type: text }
