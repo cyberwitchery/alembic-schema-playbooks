@@ -1,0 +1,64 @@
+# infoblox schema playbook for alembic
+schema:
+  types:
+    infoblox.network:
+      key:
+        prefix: { type: prefix }
+      fields:
+        prefix: { type: prefix, required: true }
+        name: { type: string }
+        description: { type: text }
+        network_view: { type: string }
+        status: { type: enum, values: [active, reserved, deprecated] }
+
+    infoblox.ip_address:
+      key:
+        address: { type: ip_address }
+      fields:
+        address: { type: ip_address, required: true }
+        network: { type: ref, target: infoblox.network }
+        status: { type: enum, values: [active, reserved, deprecated] }
+        usage: { type: enum, values: [static, dhcp, reserved, other] }
+        name: { type: string }
+        mac_address: { type: mac }
+
+    infoblox.dns_zone:
+      key:
+        fqdn: { type: string }
+      fields:
+        fqdn: { type: string, required: true }
+        description: { type: text }
+        dns_view: { type: string }
+        status: { type: enum, values: [active, disabled] }
+
+    infoblox.dns_record:
+      key:
+        zone: { type: ref, target: infoblox.dns_zone }
+        name: { type: string }
+      fields:
+        zone: { type: ref, target: infoblox.dns_zone, required: true }
+        name: { type: string, required: true }
+        record_type: { type: enum, values: [A, AAAA, CNAME, MX, TXT, PTR] }
+        value: { type: string }
+        ttl: { type: int }
+        comment: { type: text }
+
+    infoblox.dhcp_range:
+      key:
+        start_address: { type: ip_address }
+        end_address: { type: ip_address }
+      fields:
+        start_address: { type: ip_address, required: true }
+        end_address: { type: ip_address, required: true }
+        network: { type: ref, target: infoblox.network }
+        status: { type: enum, values: [active, disabled] }
+        comment: { type: text }
+
+    infoblox.fixed_address:
+      key:
+        ip_address: { type: ip_address }
+      fields:
+        ip_address: { type: ip_address, required: true }
+        mac_address: { type: mac }
+        name: { type: string }
+        network: { type: ref, target: infoblox.network }

@@ -1,0 +1,53 @@
+# servicenow cmdb schema playbook for alembic
+schema:
+  types:
+    servicenow.user:
+      key:
+        user_name: { type: string }
+      fields:
+        user_name: { type: string, required: true }
+        full_name: { type: string }
+        email: { type: string }
+        department: { type: string }
+        title: { type: string }
+        phone: { type: string }
+        active: { type: bool }
+
+    servicenow.location:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        code: { type: string }
+        address: { type: text }
+        city: { type: string }
+        country: { type: string }
+
+    servicenow.ci:
+      key:
+        sys_id: { type: string }
+      fields:
+        sys_id: { type: string, required: true }
+        name: { type: string, required: true }
+        class_name: { type: string }
+        status: { type: enum, values: [active, inactive, maintenance, retired] }
+        environment: { type: enum, values: [prod, stage, dev, test] }
+        serial: { type: string }
+        asset_tag: { type: string }
+        fqdn: { type: string }
+        ip_address: { type: ip_address }
+        owner: { type: ref, target: servicenow.user }
+        location: { type: ref, target: servicenow.location }
+        related: { type: list_ref, target: servicenow.ci }
+        tags: { type: list, item: { type: string } }
+
+    servicenow.service:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        service_type: { type: enum, values: [business, technical] }
+        status: { type: enum, values: [active, inactive, planned, retired] }
+        owner: { type: ref, target: servicenow.user }
+        cis: { type: list_ref, target: servicenow.ci }
+        description: { type: text }

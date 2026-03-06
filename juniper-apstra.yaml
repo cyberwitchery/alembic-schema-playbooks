@@ -1,0 +1,59 @@
+# juniper apstra schema playbook for alembic
+schema:
+  types:
+    apstra.blueprint:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        status: { type: enum, values: [active, planned, archived] }
+        description: { type: text }
+
+    apstra.rack:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        row: { type: string }
+        position: { type: int }
+        site: { type: string }
+        status: { type: enum, values: [active, planned, retired] }
+
+    apstra.device:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        role: { type: enum, values: [spine, leaf, border, access, server, other] }
+        status: { type: enum, values: [active, planned, maintenance, decommissioned] }
+        vendor: { type: string }
+        model: { type: string }
+        serial: { type: string }
+        management_ip: { type: ip_address }
+        blueprint: { type: ref, target: apstra.blueprint }
+        rack: { type: ref, target: apstra.rack }
+
+    apstra.interface:
+      key:
+        device: { type: ref, target: apstra.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: apstra.device, required: true }
+        interface_type: { type: enum, values: [ethernet, lag, loopback, management, other] }
+        admin_status: { type: enum, values: [up, down] }
+        oper_status: { type: enum, values: [up, down, unknown] }
+        mtu: { type: int }
+        mac_address: { type: mac }
+        description: { type: text }
+
+    apstra.link:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        interface: { type: ref, target: apstra.interface }
+        peer_device: { type: string }
+        peer_interface: { type: string }
+        speed: { type: int }
+        status: { type: enum, values: [up, down, unknown] }

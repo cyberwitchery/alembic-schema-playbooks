@@ -1,0 +1,55 @@
+# arista cloudvision schema playbook for alembic
+schema:
+  types:
+    cloudvision.device:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        status: { type: enum, values: [active, maintenance, decommissioned] }
+        vendor: { type: string }
+        model: { type: string }
+        serial: { type: string }
+        management_ip: { type: ip_address }
+        site: { type: string }
+        tags: { type: list, item: { type: string } }
+
+    cloudvision.interface:
+      key:
+        device: { type: ref, target: cloudvision.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: cloudvision.device, required: true }
+        interface_type: { type: enum, values: [ethernet, lag, loopback, management, vlan, other] }
+        admin_status: { type: enum, values: [up, down] }
+        oper_status: { type: enum, values: [up, down, unknown] }
+        mtu: { type: int }
+        mac_address: { type: mac }
+        description: { type: text }
+
+    cloudvision.vlan:
+      key:
+        vlan_id: { type: int }
+      fields:
+        vlan_id: { type: int, required: true }
+        name: { type: string }
+        status: { type: enum, values: [active, suspended, deprecated] }
+        description: { type: text }
+
+    cloudvision.vrf:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        status: { type: enum, values: [active, inactive] }
+        description: { type: text }
+
+    cloudvision.segment:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        vlan: { type: ref, target: cloudvision.vlan }
+        vrf: { type: ref, target: cloudvision.vrf }
+        description: { type: text }

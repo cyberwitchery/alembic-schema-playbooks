@@ -1,0 +1,62 @@
+# cisco nso schema playbook for alembic
+schema:
+  types:
+    nso.site:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        code: { type: string }
+        region: { type: string }
+        description: { type: text }
+
+    nso.device:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        vendor: { type: string }
+        platform: { type: string }
+        model: { type: string }
+        role: { type: enum, values: [core, distribution, access, edge, spine, leaf, firewall, router, switch, load_balancer, other] }
+        status: { type: enum, values: [active, planned, maintenance, decommissioned] }
+        management_ip: { type: ip_address }
+        site: { type: ref, target: nso.site }
+        serial: { type: string }
+        tags: { type: list, item: { type: string } }
+
+    nso.interface:
+      key:
+        device: { type: ref, target: nso.device }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        device: { type: ref, target: nso.device, required: true }
+        interface_type: { type: enum, values: [ethernet, lag, loopback, management, vlan, tunnel, subinterface, other] }
+        admin_status: { type: enum, values: [up, down] }
+        oper_status: { type: enum, values: [up, down, unknown] }
+        mtu: { type: int }
+        description: { type: text }
+        mac_address: { type: mac }
+        ip_address: { type: ip_address }
+
+    nso.service:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        service_type: { type: enum, values: [l2vpn, l3vpn, internet, firewall, load_balancer, other] }
+        status: { type: enum, values: [active, planned, suspended, decommissioned] }
+        customer: { type: string }
+        devices: { type: list_ref, target: nso.device }
+        description: { type: text }
+
+    nso.ip_address:
+      key:
+        address: { type: ip_address }
+      fields:
+        address: { type: ip_address, required: true }
+        device: { type: ref, target: nso.device }
+        interface: { type: ref, target: nso.interface }
+        status: { type: enum, values: [active, reserved, deprecated] }
+        role: { type: enum, values: [loopback, management, service, other] }

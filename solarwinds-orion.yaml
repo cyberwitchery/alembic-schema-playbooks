@@ -1,0 +1,52 @@
+# solarwinds orion schema playbook for alembic
+schema:
+  types:
+    orion.node:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        ip_address: { type: ip_address }
+        status: { type: enum, values: [up, down, warning, unknown] }
+        vendor: { type: string }
+        model: { type: string }
+        location: { type: string }
+        sys_name: { type: string }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    orion.interface:
+      key:
+        node: { type: ref, target: orion.node }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        node: { type: ref, target: orion.node, required: true }
+        status: { type: enum, values: [up, down, warning, unknown] }
+        speed: { type: int }
+        in_utilization: { type: float }
+        out_utilization: { type: float }
+        mac_address: { type: mac }
+        description: { type: text }
+
+    orion.volume:
+      key:
+        node: { type: ref, target: orion.node }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        node: { type: ref, target: orion.node, required: true }
+        size_gb: { type: float }
+        used_gb: { type: float }
+        status: { type: enum, values: [normal, warning, critical] }
+        description: { type: text }
+
+    orion.alert:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        severity: { type: enum, values: [info, warning, critical] }
+        status: { type: enum, values: [active, acknowledged, cleared] }
+        node: { type: ref, target: orion.node }
+        message: { type: text }
