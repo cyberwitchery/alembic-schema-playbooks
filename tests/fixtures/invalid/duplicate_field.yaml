@@ -1,0 +1,9 @@
+# rule: mapping keys must be unique ('name' is declared twice under 'fields')
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        name: { type: text }

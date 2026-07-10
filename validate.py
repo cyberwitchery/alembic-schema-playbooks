@@ -12,6 +12,7 @@ Depends only on the standard library and PyYAML.
 from __future__ import annotations
 
 import sys
+from collections.abc import Hashable
 from pathlib import Path
 
 import yaml
@@ -141,6 +142,46 @@ def validate_document(file: str, doc: object) -> list[str]:
     return errors
 
 
+class _DuplicateKeyError(yaml.constructor.ConstructorError):
+    """A mapping repeated a key; ``key`` is the offending name."""
+
+    def __init__(self, key: object, node: yaml.Node, key_node: yaml.Node) -> None:
+        self.key = key
+        super().__init__(
+            "while constructing a mapping",
+            node.start_mark,
+            f"found duplicate key {key!r}",
+            key_node.start_mark,
+        )
+
+
+class _StrictLoader(yaml.SafeLoader):
+    """A ``SafeLoader`` that rejects duplicate mapping keys.
+
+    PyYAML keeps only the last value when a mapping repeats a key, silently
+    dropping the earlier definition — so a playbook with two type definitions
+    of the same name, or two identically named fields, would lose one with no
+    diagnostic. This loader raises ``_DuplicateKeyError`` at parse time instead.
+    """
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
+        self.flatten_mapping(node)
+        mapping: dict = {}
+        for key_node, value_node in node.value:
+            key = self.construct_object(key_node, deep=deep)
+            if not isinstance(key, Hashable):
+                raise yaml.constructor.ConstructorError(
+                    "while constructing a mapping",
+                    node.start_mark,
+                    "found unhashable key",
+                    key_node.start_mark,
+                )
+            if key in mapping:
+                raise _DuplicateKeyError(key, node, key_node)
+            mapping[key] = self.construct_object(value_node, deep=deep)
+        return mapping
+
+
 def validate_file(path: Path) -> list[str]:
     """Load and validate a single playbook file."""
     file = path.name
@@ -149,7 +190,9 @@ def validate_file(path: Path) -> list[str]:
     except OSError as exc:
         return [f"{file}: cannot read file: {exc}"]
     try:
-        doc = yaml.safe_load(text)
+        doc = yaml.load(text, Loader=_StrictLoader)
+    except _DuplicateKeyError as exc:
+        return [f"{file}: duplicate key '{exc.key}'"]
     except yaml.YAMLError as exc:
         return [f"{file}: YAML parse error: {exc}"]
     return validate_document(file, doc)

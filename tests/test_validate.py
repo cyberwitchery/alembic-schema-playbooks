@@ -36,6 +36,8 @@ INVALID_CASES = [
     ("list_missing_item.yaml", "list requires 'item.type'"),
     ("dangling_ref.yaml", "target 'net.ghost' is not defined in this file"),
     ("key_not_in_fields.yaml", "key field not present in 'fields'"),
+    ("duplicate_type.yaml", "duplicate key 'net.thing'"),
+    ("duplicate_field.yaml", "duplicate key 'name'"),
     ("bad_yaml.yaml", "YAML parse error"),
 ]
 
