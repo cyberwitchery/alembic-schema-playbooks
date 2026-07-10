@@ -1,0 +1,13 @@
+# rule: mapping keys must be unique ('net.thing' is defined twice)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+    net.thing:
+      key:
+        code: { type: string }
+      fields:
+        code: { type: string, required: true }

@@ -83,6 +83,12 @@ exits non-zero if any playbook is invalid. the rules are:
    `<type> target '<name>' is not defined in this file`.
 8. **key field declared** — every field named under `key` also appears under
    `fields`. otherwise: `key field not present in 'fields'`.
+9. **unique keys** — no mapping repeats a key. a duplicate type name under
+   `schema.types`, a duplicate field name under `key`/`fields`, or a repeated
+   key inside a field spec is rejected while parsing — YAML would otherwise
+   silently keep only the last, dropping the earlier definition. the first
+   duplicate is reported and parsing of that file stops. otherwise:
+   `duplicate key '<key>'`.
 
 rules 3–7 apply to every field spec, including those under `key` and those
 nested in a `list` item.

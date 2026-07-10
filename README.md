@@ -48,7 +48,9 @@ python3 validate.py netbox.yaml   # or only the files you name
 ```
 
 it prints `file: type.field: message` diagnostics and exits non-zero if any
-playbook is invalid. ci runs the same check on every push and pull request.
+playbook is invalid. duplicate keys (a repeated type or field name, which yaml
+would otherwise silently collapse to the last one) are rejected while parsing.
+ci runs the same check on every push and pull request.
 
 ## notes
 
