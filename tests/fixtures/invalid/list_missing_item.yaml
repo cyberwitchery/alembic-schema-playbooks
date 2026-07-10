@@ -1,0 +1,9 @@
+# rule: a list field needs an 'item' with a 'type' (here 'item' is absent)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        tags: { type: list }

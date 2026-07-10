@@ -1,0 +1,9 @@
+# rule: field 'type' must be in the vocabulary ('uuid' is not)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        oid: { type: uuid }

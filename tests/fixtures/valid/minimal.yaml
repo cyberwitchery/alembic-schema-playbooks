@@ -1,0 +1,34 @@
+# a well-formed fixture exercising the full field-type vocabulary
+schema:
+  types:
+    net.site:
+      key:
+        slug: { type: slug }
+      fields:
+        name: { type: string, required: true }
+        slug: { type: slug, required: true }
+        description: { type: text }
+        tags: { type: list, item: { type: string } }
+
+    net.device:
+      key:
+        site: { type: ref, target: net.site }
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        site: { type: ref, target: net.site, required: true }
+        role: { type: enum, values: [spine, leaf] }
+        mgmt_ip: { type: ip_address }
+        mac_address: { type: mac }
+        loopback: { type: prefix }
+        rack_units: { type: int }
+        utilization: { type: float }
+        active: { type: bool }
+        peers: { type: list_ref, target: net.device }
+        chassis: { type: ref, target: net.chassis }
+
+    net.chassis:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }

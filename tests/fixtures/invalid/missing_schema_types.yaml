@@ -1,0 +1,2 @@
+# rule: schema.types must exist (here 'types' is absent)
+schema: {}

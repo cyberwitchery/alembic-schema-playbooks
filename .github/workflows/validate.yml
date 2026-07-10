@@ -1,0 +1,29 @@
+name: validate playbooks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install dependencies
+        run: pip install pyyaml pytest ruff
+
+      - name: lint validator
+        run: |
+          ruff check validate.py tests
+          ruff format --check validate.py tests
+
+      - name: validate playbooks
+        run: python3 validate.py
+
+      - name: run validator tests
+        run: python3 -m pytest tests -q

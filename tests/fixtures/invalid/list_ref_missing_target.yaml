@@ -1,0 +1,9 @@
+# rule: a list_ref field needs a 'target' (here it is absent)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        members: { type: list_ref }
