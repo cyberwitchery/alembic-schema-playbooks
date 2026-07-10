@@ -1,0 +1,8 @@
+# rule: every field named under 'key' must also appear under 'fields'
+schema:
+  types:
+    net.thing:
+      key:
+        code: { type: string }
+      fields:
+        name: { type: string, required: true }

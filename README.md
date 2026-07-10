@@ -35,6 +35,21 @@ ALEMBIC_STATE_BACKEND=local ALEMBIC_STATE_PATH=/tmp/alembic-state.json \
   --provision
 ```
 
+## validation
+
+every playbook is checked against the format contract documented in
+[`SPEC.md`](SPEC.md) by [`validate.py`](validate.py) (standard library + pyyaml
+only). run it locally:
+
+```bash
+pip install pyyaml
+python3 validate.py               # validates every *.yaml in this directory
+python3 validate.py netbox.yaml   # or only the files you name
+```
+
+it prints `file: type.field: message` diagnostics and exits non-zero if any
+playbook is invalid. ci runs the same check on every push and pull request.
+
 ## notes
 
 - playbooks are intentionally compact and safe to provision into infrahub.

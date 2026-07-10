@@ -1,0 +1,6 @@
+# rule: every type needs a 'key' mapping (here it is absent)
+schema:
+  types:
+    net.thing:
+      fields:
+        name: { type: string, required: true }

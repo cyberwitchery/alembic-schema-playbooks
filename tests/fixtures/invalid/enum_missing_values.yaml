@@ -1,0 +1,9 @@
+# rule: an enum field needs a non-empty 'values' list (here it is absent)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        status: { type: enum }

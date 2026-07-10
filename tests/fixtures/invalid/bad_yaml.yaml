@@ -1,0 +1,4 @@
+# rule: the document must be parseable YAML (this is not)
+schema:
+  types:
+    net.thing: { key: [unterminated

@@ -1,0 +1,9 @@
+# rule: a ref 'target' must resolve to a type in the same file ('net.ghost' does not)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }
+        owner: { type: ref, target: net.ghost }
