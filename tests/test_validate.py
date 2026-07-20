@@ -38,6 +38,9 @@ INVALID_CASES = [
     ("key_not_in_fields.yaml", "key field not present in 'fields'"),
     ("duplicate_type.yaml", "duplicate key 'net.thing'"),
     ("duplicate_field.yaml", "duplicate key 'name'"),
+    ("key_fields_disagree.yaml", "'key' and 'fields' disagree on 'type'"),
+    ("empty_key.yaml", "'key' must declare at least one field"),
+    ("undotted_type_name.yaml", "type name must be '<namespace>.<type>'"),
     ("bad_yaml.yaml", "YAML parse error"),
 ]
 
@@ -88,6 +91,45 @@ def test_key_field_specs_are_validated(tmp_path):
     assert any(
         "a.b.r: ref target 'a.missing' is not defined in this file" in e for e in errors
     )
+
+
+def test_key_and_fields_type_disagreement_is_rejected(tmp_path):
+    playbook = tmp_path / "d.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: int}}\n"
+        "      fields: {x: {type: string, required: true}}\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "d.yaml: a.b.x: 'key' and 'fields' disagree on 'type': 'int' vs 'string'"
+    ]
+
+
+def test_key_and_fields_target_disagreement_is_rejected(tmp_path):
+    # the types agree; only the ref target differs
+    playbook = tmp_path / "t.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {r: {type: ref, target: a.b}}\n"
+        "      fields: {r: {type: ref, target: a.c}}\n"
+        "    a.c:\n"
+        "      key: {n: {type: string}}\n"
+        "      fields: {n: {type: string}}\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "t.yaml: a.b.r: 'key' and 'fields' disagree on 'target': 'a.b' vs 'a.c'"
+    ]
+
+
+def test_key_and_fields_may_differ_on_metadata(tmp_path):
+    # every shipped playbook marks 'required' only under 'fields'
+    playbook = tmp_path / "m.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: enum, values: [one, two]}}\n"
+        "      fields: {x: {type: enum, values: [one, two], required: true}}\n"
+    )
+    assert validate.validate_file(playbook) == []
 
 
 def test_main_returns_zero_on_valid():

@@ -1,0 +1,8 @@
+# rule: type names are '<namespace>.<type>' ('nonamespace' has no namespace)
+schema:
+  types:
+    nonamespace:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string, required: true }

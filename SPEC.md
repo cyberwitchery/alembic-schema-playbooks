@@ -25,13 +25,18 @@ schema:
 - the top-level document is a mapping with a `schema` mapping containing a
   `types` mapping.
 - each entry under `types` is keyed by a `<namespace>.<type>` name (for example
-  `dcim.device`). namespaces are **file-scoped**: two playbooks may reuse the
-  same namespace without conflict, and references never cross files.
+  `dcim.device`) — exactly two non-empty `.`-separated segments. namespaces are
+  **file-scoped**: two playbooks may reuse the same namespace without conflict,
+  and references never cross files.
 - each type definition has a `key` mapping and a `fields` mapping.
   - `fields` declares every field of the type.
   - `key` declares the subset of fields that identify an instance. a key may be
-    composite (several fields). every field named in `key` must also be
-    declared in `fields`.
+    composite (several fields), but must name at least one. every field named
+    in `key` must also be declared in `fields`, and the two specs must **agree**
+    on what the field is: the same `type`, and the same extra key that type
+    requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item` for
+    `list`). metadata may differ — playbooks conventionally mark `required`
+    only under `fields`.
 - a **field spec** is a mapping with a `type` and optional extra keys
   (`required`, `values`, `target`, `item`, ...). field specs appear under both
   `key` and `fields`, and inside a `list` item; they are validated the same way
@@ -89,9 +94,23 @@ exits non-zero if any playbook is invalid. the rules are:
    silently keep only the last, dropping the earlier definition. the first
    duplicate is reported and parsing of that file stops. otherwise:
    `duplicate key '<key>'`.
+10. **key and fields agree** — where a field is declared under both `key` and
+    `fields`, the two specs name the same `type` and the same extra key that
+    type requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item`
+    for `list`). anything else, `required` included, may differ. otherwise:
+    `'key' and 'fields' disagree on '<attr>': <key value> vs <fields value>`.
+11. **key is non-empty** — a `key` mapping names at least one field; a type
+    whose instances nothing identifies is meaningless. otherwise:
+    `'key' must declare at least one field`.
+12. **dotted type name** — every entry under `schema.types` is named
+    `<namespace>.<type>`: exactly two non-empty `.`-separated segments. only
+    that shape is checked; which characters a segment uses is unconstrained.
+    otherwise: `type name must be '<namespace>.<type>'`.
 
 rules 3–7 apply to every field spec, including those under `key` and those
-nested in a `list` item.
+nested in a `list` item. rule 10 completes rule 8: rule 8 requires a key field
+to be declared under `fields` at all, rule 10 requires the two declarations to
+say the same thing.
 
 a playbook that violates none of these rules is valid. the validator does not
 check field *values* (there are none in a playbook) — only the schema shape.

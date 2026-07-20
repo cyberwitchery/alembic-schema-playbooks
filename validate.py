@@ -34,6 +34,14 @@ SIMPLE_TYPES = frozenset(
 REF_TYPES = frozenset({"ref", "list_ref"})
 KNOWN_TYPES = SIMPLE_TYPES | REF_TYPES | {"enum", "list"}
 
+# for each compound type, the extra key that carries its meaning beyond ``type``.
+DEFINING_KEYS = {
+    "enum": "values",
+    "ref": "target",
+    "list_ref": "target",
+    "list": "item",
+}
+
 
 def validate_field_spec(
     errors: list[str],
@@ -82,14 +90,61 @@ def validate_field_spec(
             validate_field_spec(errors, file, f"{label}.item", item, defined_types)
 
 
+def compare_key_and_field_spec(
+    errors: list[str],
+    file: str,
+    label: str,
+    key_spec: object,
+    field_spec: object,
+) -> None:
+    """Check that a field declared under both ``key`` and ``fields`` agrees.
+
+    Only the attributes that determine the field's shape are compared: ``type``,
+    plus whichever extra key that type requires (``target``, ``values``,
+    ``item``).  Metadata such as ``required`` is free to differ — playbooks
+    conventionally mark it only under ``fields``.
+    """
+    if not isinstance(key_spec, dict) or not isinstance(field_spec, dict):
+        return
+
+    key_type = key_spec.get("type")
+    field_type = field_spec.get("type")
+    if key_type != field_type:
+        errors.append(
+            f"{file}: {label}: 'key' and 'fields' disagree on 'type': "
+            f"{key_type!r} vs {field_type!r}"
+        )
+        return
+
+    attr = DEFINING_KEYS.get(key_type) if isinstance(key_type, str) else None
+    if attr is None:
+        return
+    if key_spec.get(attr) != field_spec.get(attr):
+        errors.append(
+            f"{file}: {label}: 'key' and 'fields' disagree on '{attr}': "
+            f"{key_spec.get(attr)!r} vs {field_spec.get(attr)!r}"
+        )
+
+
+def _is_dotted_type_name(name: object) -> bool:
+    """True if ``name`` has the ``<namespace>.<type>`` shape ``SPEC.md`` requires."""
+    if not isinstance(name, str):
+        return False
+    segments = name.split(".")
+    return len(segments) == 2 and all(segments)
+
+
 def validate_type(
     errors: list[str],
     file: str,
-    type_name: str,
+    type_name: object,
     definition: object,
     defined_types: set[str],
 ) -> None:
     """Validate a single ``<namespace>.<type>`` definition."""
+    if not _is_dotted_type_name(type_name):
+        errors.append(f"{file}: {type_name}: type name must be '<namespace>.<type>'")
+
     if not isinstance(definition, dict):
         errors.append(f"{file}: {type_name}: type definition must be a mapping")
         return
@@ -102,6 +157,8 @@ def validate_type(
         errors.append(f"{file}: {type_name}: missing 'key' mapping")
     if not fields_ok:
         errors.append(f"{file}: {type_name}: missing 'fields' mapping")
+    if key_ok and not key:
+        errors.append(f"{file}: {type_name}: 'key' must declare at least one field")
 
     if fields_ok:
         for field_name, spec in fields.items():
@@ -111,13 +168,15 @@ def validate_type(
 
     if key_ok:
         for field_name, spec in key.items():
-            validate_field_spec(
-                errors, file, f"{type_name}.{field_name}", spec, defined_types
-            )
-            if fields_ok and field_name not in fields:
-                errors.append(
-                    f"{file}: {type_name}.{field_name}: "
-                    "key field not present in 'fields'"
+            label = f"{type_name}.{field_name}"
+            validate_field_spec(errors, file, label, spec, defined_types)
+            if not fields_ok:
+                continue
+            if field_name not in fields:
+                errors.append(f"{file}: {label}: key field not present in 'fields'")
+            else:
+                compare_key_and_field_spec(
+                    errors, file, label, spec, fields[field_name]
                 )
 
 

@@ -1,0 +1,7 @@
+# rule: 'key' must name at least one identifying field (here it names none)
+schema:
+  types:
+    net.thing:
+      key: {}
+      fields:
+        name: { type: string, required: true }

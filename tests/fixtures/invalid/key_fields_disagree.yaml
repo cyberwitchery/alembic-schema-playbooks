@@ -1,0 +1,8 @@
+# rule: a field under both 'key' and 'fields' must declare the same type
+schema:
+  types:
+    net.thing:
+      key:
+        id: { type: int }
+      fields:
+        id: { type: string, required: true }
