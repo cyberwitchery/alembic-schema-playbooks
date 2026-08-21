@@ -102,7 +102,8 @@ def compare_key_and_field_spec(
     Only the attributes that determine the field's shape are compared: ``type``,
     plus whichever extra key that type requires (``target``, ``values``,
     ``item``).  Metadata such as ``required`` is free to differ — playbooks
-    conventionally mark it only under ``fields``.
+    conventionally mark it only under ``fields``.  A ``list``'s two ``item``
+    specs are compared by this same rule, so it holds at every depth.
     """
     if not isinstance(key_spec, dict) or not isinstance(field_spec, dict):
         return
@@ -118,6 +119,15 @@ def compare_key_and_field_spec(
 
     attr = DEFINING_KEYS.get(key_type) if isinstance(key_type, str) else None
     if attr is None:
+        return
+    if key_type == "list":
+        compare_key_and_field_spec(
+            errors,
+            file,
+            f"{label}.{attr}",
+            key_spec.get(attr),
+            field_spec.get(attr),
+        )
         return
     if key_spec.get(attr) != field_spec.get(attr):
         errors.append(
