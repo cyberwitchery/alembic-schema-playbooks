@@ -35,7 +35,8 @@ schema:
     in `key` must also be declared in `fields`, and the two specs must **agree**
     on what the field is: the same `type`, and the same extra key that type
     requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item` for
-    `list`). metadata may differ — playbooks conventionally mark `required`
+    `list`). for a `list`, the two `item` specs must agree by this same rule,
+    recursively. metadata may differ — playbooks conventionally mark `required`
     only under `fields`.
 - a **field spec** is a mapping with a `type` and optional extra keys
   (`required`, `values`, `target`, `item`, ...). field specs appear under both
@@ -97,7 +98,11 @@ exits non-zero if any playbook is invalid. the rules are:
 10. **key and fields agree** — where a field is declared under both `key` and
     `fields`, the two specs name the same `type` and the same extra key that
     type requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item`
-    for `list`). anything else, `required` included, may differ. otherwise:
+    for `list`). anything else, `required` included, may differ. a `list`'s two
+    `item` specs are compared by this same rule rather than for equality, so it
+    holds at every depth — metadata nested inside an item may differ too, and a
+    nested disagreement is reported against the item, as
+    `<type>.<field>.item`. otherwise:
     `'key' and 'fields' disagree on '<attr>': <key value> vs <fields value>`.
 11. **key is non-empty** — a `key` mapping names at least one field; a type
     whose instances nothing identifies is meaningless. otherwise:
@@ -108,9 +113,10 @@ exits non-zero if any playbook is invalid. the rules are:
     otherwise: `type name must be '<namespace>.<type>'`.
 
 rules 3–7 apply to every field spec, including those under `key` and those
-nested in a `list` item. rule 10 completes rule 8: rule 8 requires a key field
-to be declared under `fields` at all, rule 10 requires the two declarations to
-say the same thing.
+nested in a `list` item; rule 10 likewise compares a key field's two
+declarations at every depth. rule 10 completes rule 8: rule 8 requires a key
+field to be declared under `fields` at all, rule 10 requires the two
+declarations to say the same thing.
 
 a playbook that violates none of these rules is valid. the validator does not
 check field *values* (there are none in a playbook) — only the schema shape.

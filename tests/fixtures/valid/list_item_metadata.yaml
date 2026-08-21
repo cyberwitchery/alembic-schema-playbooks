@@ -1,0 +1,8 @@
+# a list field under both 'key' and 'fields', with metadata only on the fields side
+schema:
+  types:
+    net.thing:
+      key:
+        tags: { type: list, item: { type: string } }
+      fields:
+        tags: { type: list, item: { type: string, required: true }, required: true }

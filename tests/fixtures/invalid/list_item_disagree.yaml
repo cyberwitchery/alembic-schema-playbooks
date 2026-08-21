@@ -1,0 +1,14 @@
+# rule: a list field's 'item' specs must agree, here on the nested ref target
+schema:
+  types:
+    net.thing:
+      key:
+        peers: { type: list, item: { type: ref, target: net.thing } }
+      fields:
+        peers: { type: list, item: { type: ref, target: net.other } }
+
+    net.other:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string }

@@ -9,8 +9,12 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PLAYBOOKS = sorted(REPO_ROOT.glob("*.yaml"))
 
 
-def test_valid_fixture_passes():
-    assert validate.validate_file(FIXTURES / "valid" / "minimal.yaml") == []
+VALID_CASES = ["minimal.yaml", "list_item_metadata.yaml"]
+
+
+@pytest.mark.parametrize("filename", VALID_CASES)
+def test_valid_fixture_passes(filename):
+    assert validate.validate_file(FIXTURES / "valid" / filename) == []
 
 
 @pytest.mark.parametrize("playbook", PLAYBOOKS, ids=lambda p: p.name)
@@ -39,6 +43,7 @@ INVALID_CASES = [
     ("duplicate_type.yaml", "duplicate key 'net.thing'"),
     ("duplicate_field.yaml", "duplicate key 'name'"),
     ("key_fields_disagree.yaml", "'key' and 'fields' disagree on 'type'"),
+    ("list_item_disagree.yaml", "'key' and 'fields' disagree on 'target'"),
     ("empty_key.yaml", "'key' must declare at least one field"),
     ("undotted_type_name.yaml", "type name must be '<namespace>.<type>'"),
     ("bad_yaml.yaml", "YAML parse error"),
@@ -130,6 +135,56 @@ def test_key_and_fields_may_differ_on_metadata(tmp_path):
         "      fields: {x: {type: enum, values: [one, two], required: true}}\n"
     )
     assert validate.validate_file(playbook) == []
+
+
+def test_key_and_fields_may_differ_on_metadata_inside_a_list_item(tmp_path):
+    playbook = tmp_path / "i.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {t: {type: list, item: {type: string}}}\n"
+        "      fields: {t: {type: list, item: {type: string, required: true}}}\n"
+    )
+    assert validate.validate_file(playbook) == []
+
+
+def test_key_and_fields_list_item_type_disagreement_is_rejected(tmp_path):
+    playbook = tmp_path / "n.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {t: {type: list, item: {type: string}}}\n"
+        "      fields: {t: {type: list, item: {type: int}}}\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "n.yaml: a.b.t.item: 'key' and 'fields' disagree on 'type': 'string' vs 'int'"
+    ]
+
+
+def test_key_and_fields_nested_list_item_is_compared_at_depth(tmp_path):
+    playbook = tmp_path / "z.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {t: {type: list, item: {type: list, item: "
+        "{type: enum, values: [one]}}}}\n"
+        "      fields: {t: {type: list, item: {type: list, item: "
+        "{type: enum, values: [two], required: true}}}}\n"
+    )
+    expected = (
+        "z.yaml: a.b.t.item.item: 'key' and 'fields' disagree on 'values': "
+        "['one'] vs ['two']"
+    )
+    assert validate.validate_file(playbook) == [expected]
+
+
+def test_malformed_list_item_is_reported_once(tmp_path):
+    playbook = tmp_path / "o.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {t: {type: list, item: {type: string}}}\n"
+        "      fields: {t: {type: list}}\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "o.yaml: a.b.t: list requires 'item.type'"
+    ]
 
 
 def test_main_returns_zero_on_valid():
