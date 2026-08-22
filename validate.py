@@ -49,16 +49,21 @@ def validate_field_spec(
     label: str,
     spec: object,
     defined_types: set[str],
+    seen: tuple[int, ...] = (),
 ) -> None:
     """Validate one field spec (a ``{type: ...}`` mapping).
 
     ``label`` is the ``type.field`` prefix used in diagnostics; ``defined_types``
     is the set of type names defined in the same file, used to resolve ref
     targets.  Applies to specs under both ``key`` and ``fields``, and recurses
-    into ``list`` item specs.
+    into ``list`` item specs.  ``seen`` holds the ``id()`` of the specs on the
+    path to this one; callers do not pass it.
     """
     if not isinstance(spec, dict):
         errors.append(f"{file}: {label}: field spec must be a mapping")
+        return
+    if id(spec) in seen:
+        errors.append(f"{file}: {label}: field spec nests itself")
         return
 
     ftype = spec.get("type")
@@ -87,7 +92,9 @@ def validate_field_spec(
         if not isinstance(item, dict) or "type" not in item:
             errors.append(f"{file}: {label}: list requires 'item.type'")
         else:
-            validate_field_spec(errors, file, f"{label}.item", item, defined_types)
+            validate_field_spec(
+                errors, file, f"{label}.item", item, defined_types, seen + (id(spec),)
+            )
 
 
 def compare_key_and_field_spec(
@@ -96,6 +103,7 @@ def compare_key_and_field_spec(
     label: str,
     key_spec: object,
     field_spec: object,
+    seen: tuple[tuple[int, int], ...] = (),
 ) -> None:
     """Check that a field declared under both ``key`` and ``fields`` agrees.
 
@@ -103,9 +111,13 @@ def compare_key_and_field_spec(
     plus whichever extra key that type requires (``target``, ``values``,
     ``item``).  Metadata such as ``required`` is free to differ — playbooks
     conventionally mark it only under ``fields``.  A ``list``'s two ``item``
-    specs are compared by this same rule, so it holds at every depth.
+    specs are compared by this same rule, so it holds at every depth.  A spec
+    pair already on the path is left to ``validate_field_spec`` to report.
     """
     if not isinstance(key_spec, dict) or not isinstance(field_spec, dict):
+        return
+    pair = (id(key_spec), id(field_spec))
+    if pair in seen:
         return
 
     key_type = key_spec.get("type")
@@ -127,6 +139,7 @@ def compare_key_and_field_spec(
             f"{label}.{attr}",
             key_spec.get(attr),
             field_spec.get(attr),
+            seen + (pair,),
         )
         return
     if key_spec.get(attr) != field_spec.get(attr):
@@ -260,11 +273,13 @@ def validate_file(path: Path) -> list[str]:
         return [f"{file}: cannot read file: {exc}"]
     try:
         doc = yaml.load(text, Loader=_StrictLoader)
+        return validate_document(file, doc)
     except _DuplicateKeyError as exc:
         return [f"{file}: duplicate key '{exc.key}'"]
     except yaml.YAMLError as exc:
         return [f"{file}: YAML parse error: {exc}"]
-    return validate_document(file, doc)
+    except RecursionError:
+        return [f"{file}: nested too deeply to validate"]
 
 
 def main(argv: list[str]) -> int:

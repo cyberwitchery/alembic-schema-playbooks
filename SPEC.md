@@ -111,12 +111,21 @@ exits non-zero if any playbook is invalid. the rules are:
     `<namespace>.<type>`: exactly two non-empty `.`-separated segments. only
     that shape is checked; which characters a segment uses is unconstrained.
     otherwise: `type name must be '<namespace>.<type>'`.
+13. **no self-nesting field spec** — no field spec contains itself. a YAML
+    anchor aliased inside the node it names makes a spec its own `item`, which
+    describes a list of unbounded depth that no document can satisfy. it is the
+    nesting that is rejected, not the sharing: one anchored spec reused by two
+    sibling fields is fine. otherwise: `field spec nests itself`.
 
-rules 3–7 apply to every field spec, including those under `key` and those
-nested in a `list` item; rule 10 likewise compares a key field's two
+rules 3–7 and 13 apply to every field spec, including those under `key` and
+those nested in a `list` item; rule 10 likewise compares a key field's two
 declarations at every depth. rule 10 completes rule 8: rule 8 requires a key
 field to be declared under `fields` at all, rule 10 requires the two
 declarations to say the same thing.
+
+no single playbook can stop the others from being checked. a file nested too
+deep for the validator to descend is reported as
+`nested too deeply to validate` and the run carries on with the rest.
 
 a playbook that violates none of these rules is valid. the validator does not
 check field *values* (there are none in a playbook) — only the schema shape.

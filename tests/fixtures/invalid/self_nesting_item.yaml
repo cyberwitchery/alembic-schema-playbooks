@@ -1,0 +1,11 @@
+# rule: a field spec must not nest itself (the anchor is aliased as its own item)
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields:
+        name: { type: string }
+        tags: &tags
+          type: list
+          item: *tags
