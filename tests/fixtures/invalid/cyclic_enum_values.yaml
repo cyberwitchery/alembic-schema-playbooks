@@ -1,0 +1,8 @@
+# self-referential 'values': the stack is exhausted comparing 'key' to 'fields'
+schema:
+  types:
+    net.thing:
+      key:
+        kind: { type: enum, values: &key_values [*key_values] }
+      fields:
+        kind: { type: enum, values: &field_values [*field_values] }

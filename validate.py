@@ -279,7 +279,7 @@ def validate_file(path: Path) -> list[str]:
     except yaml.YAMLError as exc:
         return [f"{file}: YAML parse error: {exc}"]
     except RecursionError:
-        return [f"{file}: nested too deeply to validate"]
+        return [f"{file}: too deeply nested or self-referential to validate"]
 
 
 def main(argv: list[str]) -> int:
