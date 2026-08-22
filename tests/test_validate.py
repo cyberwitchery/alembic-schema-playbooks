@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PLAYBOOKS = sorted(REPO_ROOT.glob("*.yaml"))
 
 
-VALID_CASES = ["minimal.yaml", "list_item_metadata.yaml"]
+VALID_CASES = ["minimal.yaml", "list_item_metadata.yaml", "shared_anchor.yaml"]
 
 
 @pytest.mark.parametrize("filename", VALID_CASES)
@@ -47,6 +48,7 @@ INVALID_CASES = [
     ("empty_key.yaml", "'key' must declare at least one field"),
     ("undotted_type_name.yaml", "type name must be '<namespace>.<type>'"),
     ("bad_yaml.yaml", "YAML parse error"),
+    ("self_nesting_item.yaml", "field spec nests itself"),
 ]
 
 
@@ -185,6 +187,62 @@ def test_malformed_list_item_is_reported_once(tmp_path):
     assert validate.validate_file(playbook) == [
         "o.yaml: a.b.t: list requires 'item.type'"
     ]
+
+
+def test_self_nesting_key_and_fields_specs_are_reported_not_crashed(tmp_path):
+    # the spec is checked once under 'fields' and once under 'key'
+    playbook = tmp_path / "s.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key:\n        n: &loop\n"
+        "          type: list\n          item: *loop\n"
+        "      fields:\n        n: *loop\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "s.yaml: a.b.n.item: field spec nests itself",
+        "s.yaml: a.b.n.item: field spec nests itself",
+    ]
+
+
+def test_self_nesting_is_reported_at_the_depth_the_cycle_closes(tmp_path):
+    playbook = tmp_path / "c.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields:\n        x: {type: string}\n"
+        "        t: &a\n          type: list\n"
+        "          item:\n            type: list\n            item: *a\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "c.yaml: a.b.t.item.item: field spec nests itself"
+    ]
+
+
+def _deeply_nested_playbook(path):
+    # one nesting level costs at least one frame, so this always overflows
+    spec = "{type: string}"
+    for _ in range(sys.getrecursionlimit()):
+        spec = f"{{type: list, item: {spec}}}"
+    path.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        f"      fields: {{x: {{type: string}}, t: {spec}}}\n"
+    )
+    return path
+
+
+def test_excessive_nesting_is_reported_not_crashed(tmp_path):
+    playbook = _deeply_nested_playbook(tmp_path / "d.yaml")
+    assert validate.validate_file(playbook) == ["d.yaml: nested too deeply to validate"]
+
+
+def test_a_bad_playbook_does_not_stop_the_others(tmp_path, capsys):
+    bad = _deeply_nested_playbook(tmp_path / "d.yaml")
+    valid = FIXTURES / "valid" / "minimal.yaml"
+    nesting = FIXTURES / "invalid" / "self_nesting_item.yaml"
+    assert validate.main([str(bad), str(nesting), str(valid)]) == 1
+    out = capsys.readouterr().out
+    assert "2 problem(s) found in 3 playbook(s)" in out
 
 
 def test_main_returns_zero_on_valid():

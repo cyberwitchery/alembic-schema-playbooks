@@ -1,0 +1,9 @@
+# one anchored spec reused by two sibling fields: shared, but not self-nesting
+schema:
+  types:
+    net.thing:
+      key:
+        tags: &tags { type: list, item: { type: string } }
+      fields:
+        tags: *tags
+        labels: *tags
