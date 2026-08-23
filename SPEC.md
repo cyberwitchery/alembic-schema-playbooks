@@ -123,9 +123,11 @@ declarations at every depth. rule 10 completes rule 8: rule 8 requires a key
 field to be declared under `fields` at all, rule 10 requires the two
 declarations to say the same thing.
 
-no single playbook can stop the others from being checked. a file nested too
-deep for the validator to descend is reported as
-`nested too deeply to validate` and the run carries on with the rest.
+no single playbook can stop the others from being checked. a file the validator
+cannot walk to the end — nested deeper than it can descend, or self-referential
+through YAML anchors — is reported as
+`too deeply nested or self-referential to validate` and the run carries on with
+the rest.
 
 a playbook that violates none of these rules is valid. the validator does not
 check field *values* (there are none in a playbook) — only the schema shape.

@@ -233,7 +233,9 @@ def _deeply_nested_playbook(path):
 
 def test_excessive_nesting_is_reported_not_crashed(tmp_path):
     playbook = _deeply_nested_playbook(tmp_path / "d.yaml")
-    assert validate.validate_file(playbook) == ["d.yaml: nested too deeply to validate"]
+    assert validate.validate_file(playbook) == [
+        "d.yaml: too deeply nested or self-referential to validate"
+    ]
 
 
 def test_a_bad_playbook_does_not_stop_the_others(tmp_path, capsys):
@@ -243,6 +245,26 @@ def test_a_bad_playbook_does_not_stop_the_others(tmp_path, capsys):
     assert validate.main([str(bad), str(nesting), str(valid)]) == 1
     out = capsys.readouterr().out
     assert "2 problem(s) found in 3 playbook(s)" in out
+
+
+def test_self_referential_enum_values_are_reported_not_crashed():
+    # the cycle closes in the 'key'/'fields' comparison, not in the loader
+    playbook = FIXTURES / "invalid" / "cyclic_enum_values.yaml"
+    assert validate.validate_file(playbook) == [
+        "cyclic_enum_values.yaml: too deeply nested or self-referential to validate"
+    ]
+
+
+def test_a_self_referential_playbook_does_not_stop_the_others(capsys):
+    cyclic = FIXTURES / "invalid" / "cyclic_enum_values.yaml"
+    later = FIXTURES / "invalid" / "unknown_type.yaml"
+    assert validate.main([str(cyclic), str(later)]) == 1
+    out = capsys.readouterr().out
+    assert (
+        "cyclic_enum_values.yaml: too deeply nested or self-referential to validate"
+        in out
+    )
+    assert "unknown_type.yaml: net.thing.oid: unknown type 'uuid'" in out
 
 
 def test_main_returns_zero_on_valid():
