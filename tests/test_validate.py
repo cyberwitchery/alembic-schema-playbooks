@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 import validate
 
@@ -10,7 +11,12 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PLAYBOOKS = sorted(REPO_ROOT.glob("*.yaml"))
 
 
-VALID_CASES = ["minimal.yaml", "list_item_metadata.yaml", "shared_anchor.yaml"]
+VALID_CASES = [
+    "minimal.yaml",
+    "list_item_metadata.yaml",
+    "shared_anchor.yaml",
+    "merge_override.yaml",
+]
 
 
 @pytest.mark.parametrize("filename", VALID_CASES)
@@ -43,6 +49,7 @@ INVALID_CASES = [
     ("key_not_in_fields.yaml", "key field not present in 'fields'"),
     ("duplicate_type.yaml", "duplicate key 'net.thing'"),
     ("duplicate_field.yaml", "duplicate key 'name'"),
+    ("merge_duplicate_field.yaml", "duplicate key 'name'"),
     ("key_fields_disagree.yaml", "'key' and 'fields' disagree on 'type'"),
     ("list_item_disagree.yaml", "'key' and 'fields' disagree on 'target'"),
     ("empty_key.yaml", "'key' must declare at least one field"),
@@ -216,6 +223,104 @@ def test_self_nesting_is_reported_at_the_depth_the_cycle_closes(tmp_path):
     assert validate.validate_file(playbook) == [
         "c.yaml: a.b.t.item.item: field spec nests itself"
     ]
+
+
+MERGE_CASES = [
+    ("override", "b: &b {name: one, extra: 1}\nd:\n  <<: *b\n  name: two\n"),
+    ("sequence", "a: &a {name: one}\nb: &b {name: two, x: 1}\nd:\n  <<: [*a, *b]\n"),
+    ("repeated merge key", "a: &a {p: 1}\nb: &b {q: 2}\nd:\n  <<: *a\n  <<: *b\n"),
+    ("chained", "a: &a {name: one}\nb: &b\n  <<: *a\n  name: two\nd:\n  <<: *b\n"),
+]
+
+
+@pytest.mark.parametrize(
+    "text", [c[1] for c in MERGE_CASES], ids=[c[0] for c in MERGE_CASES]
+)
+def test_merge_keys_load_as_pyyaml_defines(text):
+    assert yaml.load(text, Loader=validate._StrictLoader) == yaml.safe_load(text)
+
+
+def test_an_explicit_key_wins_over_a_merged_one():
+    text = (
+        "a: &a {name: one, x: 1}\nb: &b {name: two, y: 2}\nd:\n  <<: [*a, *b]\n  y: 9\n"
+    )
+    assert yaml.load(text, Loader=validate._StrictLoader) == {
+        "a": {"name": "one", "x": 1},
+        "b": {"name": "two", "y": 2},
+        "d": {"name": "one", "x": 1, "y": 9},
+    }
+
+
+def test_the_overriding_field_spec_is_the_one_validated(tmp_path):
+    playbook = tmp_path / "v.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields: &common {x: {type: string}}\n"
+        "    a.c:\n"
+        "      key: {k: {type: string}}\n"
+        "      fields:\n        <<: *common\n"
+        "        k: {type: string}\n        x: {type: uuid}\n"
+    )
+    assert validate.validate_file(playbook) == ["v.yaml: a.c.x: unknown type 'uuid'"]
+
+
+def test_a_repeat_alongside_a_merge_is_still_a_duplicate(tmp_path):
+    playbook = tmp_path / "r.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields: &common {x: {type: string}}\n"
+        "    a.c:\n"
+        "      key: {x: {type: text}}\n"
+        "      fields:\n        <<: *common\n"
+        "        x: {type: text}\n        x: {type: int}\n"
+    )
+    assert validate.validate_file(playbook) == ["r.yaml: duplicate key 'x'"]
+
+
+def test_a_repeat_inside_a_merged_mapping_is_still_a_duplicate(tmp_path):
+    playbook = tmp_path / "s.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields: &common\n"
+        "        x: {type: string}\n        x: {type: text}\n"
+        "    a.c:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields:\n        <<: *common\n"
+    )
+    assert validate.validate_file(playbook) == ["s.yaml: duplicate key 'x'"]
+
+
+def test_a_repeat_inside_an_inline_merge_source_is_still_a_duplicate(tmp_path):
+    # the source is never a value of its own, so only the merge reaches it
+    playbook = tmp_path / "i.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields:\n"
+        "        <<: {x: {type: string}, x: {type: text}}\n"
+    )
+    assert validate.validate_file(playbook) == ["i.yaml: duplicate key 'x'"]
+
+
+def test_a_merge_of_something_other_than_a_mapping_is_a_parse_error(tmp_path):
+    playbook = tmp_path / "b.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields:\n        <<: 3\n"
+    )
+    errors = validate.validate_file(playbook)
+    assert len(errors) == 1, errors
+    assert errors[0].startswith("b.yaml: YAML parse error:")
+    assert "expected a mapping or list of mappings for merging" in errors[0]
+
+
+def test_a_yaml_value_key_loads_as_the_string_key():
+    text = "d:\n  =: 1\n  b: 2\n"
+    assert yaml.load(text, Loader=validate._StrictLoader) == {"d": {"=": 1, "b": 2}}
 
 
 def _deeply_nested_playbook(path):

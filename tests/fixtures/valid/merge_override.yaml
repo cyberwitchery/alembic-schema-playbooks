@@ -1,0 +1,16 @@
+# a merge key pulls in shared field specs; the explicit 'name' overrides the merged one
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields: &common
+        name: { type: string, required: true }
+        description: { type: text }
+
+    net.other:
+      key:
+        name: { type: text }
+      fields:
+        <<: *common
+        name: { type: text, required: true }
