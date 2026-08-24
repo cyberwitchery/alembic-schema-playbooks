@@ -42,6 +42,14 @@ schema:
   (`required`, `values`, `target`, `item`, ...). field specs appear under both
   `key` and `fields`, and inside a `list` item; they are validated the same way
   wherever they appear.
+- YAML anchors and the `<<` merge key may be used freely. an anchored mapping
+  may be aliased (`*name`) or merged into another mapping (`<<: *name`, or
+  `<<: [*a, *b]` to merge several — earlier aliases win), and the merging
+  mapping's own keys override the merged ones. merges are resolved before the
+  rules below are checked, so a merged field spec is validated exactly as if it
+  had been written out in place; the one rule that looks at the unmerged text is
+  rule 9, which counts only the keys a mapping writes itself. a `<<` whose value
+  is neither a mapping nor a list of mappings is a YAML parse error.
 
 ## field types
 
@@ -89,11 +97,14 @@ exits non-zero if any playbook is invalid. the rules are:
    `<type> target '<name>' is not defined in this file`.
 8. **key field declared** — every field named under `key` also appears under
    `fields`. otherwise: `key field not present in 'fields'`.
-9. **unique keys** — no mapping repeats a key. a duplicate type name under
-   `schema.types`, a duplicate field name under `key`/`fields`, or a repeated
-   key inside a field spec is rejected while parsing — YAML would otherwise
-   silently keep only the last, dropping the earlier definition. the first
-   duplicate is reported and parsing of that file stops. otherwise:
+9. **unique keys** — no mapping repeats a key it writes out itself. a duplicate
+   type name under `schema.types`, a duplicate field name under `key`/`fields`,
+   or a repeated key inside a field spec is rejected while parsing — YAML would
+   otherwise silently keep only the last, dropping the earlier definition. a key
+   a `<<` brings in is not a repeat: YAML defines the explicit key as winning,
+   so nothing is dropped silently, and overriding one merged entry is the point
+   of the idiom. each merged mapping is checked for repeats where it is written.
+   the first duplicate is reported and parsing of that file stops. otherwise:
    `duplicate key '<key>'`.
 10. **key and fields agree** — where a field is declared under both `key` and
     `fields`, the two specs name the same `type` and the same extra key that

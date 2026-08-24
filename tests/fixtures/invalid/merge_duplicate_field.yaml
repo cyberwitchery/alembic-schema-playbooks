@@ -1,0 +1,16 @@
+# rule: mapping keys must be unique (merging does not license repeating 'name')
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string }
+      fields: &common
+        name: { type: string, required: true }
+
+    net.other:
+      key:
+        name: { type: string }
+      fields:
+        <<: *common
+        name: { type: text }
+        name: { type: int }

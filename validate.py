@@ -224,6 +224,10 @@ def validate_document(file: str, doc: object) -> list[str]:
     return errors
 
 
+_MERGE_TAG = "tag:yaml.org,2002:merge"
+_VALUE_TAG = "tag:yaml.org,2002:value"
+
+
 class _DuplicateKeyError(yaml.constructor.ConstructorError):
     """A mapping repeated a key; ``key`` is the offending name."""
 
@@ -244,13 +248,40 @@ class _StrictLoader(yaml.SafeLoader):
     dropping the earlier definition — so a playbook with two type definitions
     of the same name, or two identically named fields, would lose one with no
     diagnostic. This loader raises ``_DuplicateKeyError`` at parse time instead.
+
+    Only the keys a mapping writes out itself are compared: a ``<<`` merge
+    brings in keys the mapping may then override, which is no repeat.
     """
 
+    def __init__(self, stream: object) -> None:
+        super().__init__(stream)
+        self._checked: set[yaml.Node] = set()
+
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
-        self.flatten_mapping(node)
-        mapping: dict = {}
+        self._reject_duplicate_keys(node, deep)
+        return super().construct_mapping(node, deep=deep)
+
+    def _reject_duplicate_keys(self, node: yaml.Node, deep: bool) -> None:
+        """Raise if ``node`` repeats a key, recursing into its merge sources."""
+        if isinstance(node, yaml.SequenceNode):
+            for item in node.value:
+                self._reject_duplicate_keys(item, deep)
+            return
+        if not isinstance(node, yaml.MappingNode) or node in self._checked:
+            return
+        self._checked.add(node)
+
+        seen: set = set()
         for key_node, value_node in node.value:
-            key = self.construct_object(key_node, deep=deep)
+            if key_node.tag == _MERGE_TAG:
+                self._reject_duplicate_keys(value_node, deep)
+                continue
+            # ``=`` is only a plain key once ``flatten_mapping`` has retagged it.
+            key = (
+                key_node.value
+                if key_node.tag == _VALUE_TAG
+                else self.construct_object(key_node, deep=deep)
+            )
             if not isinstance(key, Hashable):
                 raise yaml.constructor.ConstructorError(
                     "while constructing a mapping",
@@ -258,10 +289,9 @@ class _StrictLoader(yaml.SafeLoader):
                     "found unhashable key",
                     key_node.start_mark,
                 )
-            if key in mapping:
+            if key in seen:
                 raise _DuplicateKeyError(key, node, key_node)
-            mapping[key] = self.construct_object(value_node, deep=deep)
-        return mapping
+            seen.add(key)
 
 
 def validate_file(path: Path) -> list[str]:
