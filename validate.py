@@ -70,6 +70,9 @@ def validate_field_spec(
     if ftype is None:
         errors.append(f"{file}: {label}: missing 'type'")
         return
+    if not isinstance(ftype, str):
+        errors.append(f"{file}: {label}: 'type' must be a string")
+        return
     if ftype not in KNOWN_TYPES:
         errors.append(f"{file}: {label}: unknown type '{ftype}'")
         return
