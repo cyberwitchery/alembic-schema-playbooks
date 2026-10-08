@@ -81,6 +81,19 @@ def test_enum_empty_values_is_rejected(tmp_path):
     ]
 
 
+@pytest.mark.parametrize("ftype", ["[string]", "{a: b}"])
+def test_non_string_type_is_rejected(tmp_path, ftype):
+    playbook = tmp_path / "t.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields: {x: {type: string}, s: {type: " + ftype + "}}\n"
+    )
+    assert validate.validate_file(playbook) == [
+        "t.yaml: a.b.s: 'type' must be a string"
+    ]
+
+
 def test_list_item_type_is_validated(tmp_path):
     playbook = tmp_path / "l.yaml"
     playbook.write_text(

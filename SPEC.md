@@ -85,7 +85,8 @@ exits non-zero if any playbook is invalid. the rules are:
    `key` mapping and a `fields` mapping. otherwise: `missing 'key' mapping` /
    `missing 'fields' mapping`.
 3. **known type** — every field spec has a `type`, and that `type` is one of the
-   vocabulary above. otherwise: `missing 'type'` / `unknown type '<T>'`.
+   vocabulary above. otherwise: `missing 'type'` / `'type' must be a string` /
+   `unknown type '<T>'`.
 4. **enum values** — an `enum` field has a non-empty `values` list. otherwise:
    `enum requires a non-empty 'values' list`.
 5. **ref target present** — a `ref` / `list_ref` field has a non-empty `target`
