@@ -385,6 +385,43 @@ def test_a_self_referential_playbook_does_not_stop_the_others(capsys):
     assert "unknown_type.yaml: net.thing.oid: unknown type 'uuid'" in out
 
 
+def test_a_non_utf8_byte_is_reported_at_its_byte_offset(tmp_path):
+    data = (
+        b"schema:\n  types:\n    a.b:\n"
+        b"      key: {x: {type: string}}\n"
+        b"      fields: {x: {type: string, description: na\xc3\xafve caf\xe9}}\n"
+    )
+    playbook = tmp_path / "u.yaml"
+    playbook.write_bytes(data)
+    offset = data.index(b"\xe9")
+    assert validate.validate_file(playbook) == [
+        f"u.yaml: not valid UTF-8: byte 0xe9 at offset {offset}"
+    ]
+
+
+def test_a_utf16_playbook_is_rejected_as_not_utf8(tmp_path):
+    text = (
+        "\ufeffschema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields: {x: {type: string}}\n"
+    )
+    playbook = tmp_path / "w.yaml"
+    playbook.write_bytes(text.encode("utf-16-le"))
+    assert validate.validate_file(playbook) == [
+        "w.yaml: not valid UTF-8: byte 0xff at offset 0"
+    ]
+
+
+def test_a_non_utf8_playbook_does_not_stop_the_others(tmp_path, capsys):
+    bad = tmp_path / "bad.yaml"
+    bad.write_bytes(b'schema: {types: {}, description: "caf\xe9"}\n')
+    later = FIXTURES / "invalid" / "unknown_type.yaml"
+    assert validate.main([str(bad), str(later)]) == 1
+    out = capsys.readouterr().out
+    assert "bad.yaml: not valid UTF-8: byte 0xe9 at offset 37" in out
+    assert "unknown_type.yaml: net.thing.oid: unknown type 'uuid'" in out
+
+
 def test_main_returns_zero_on_valid():
     assert validate.main([str(FIXTURES / "valid" / "minimal.yaml")]) == 0
 

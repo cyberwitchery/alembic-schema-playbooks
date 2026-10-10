@@ -304,6 +304,9 @@ def validate_file(path: Path) -> list[str]:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         return [f"{file}: cannot read file: {exc}"]
+    except UnicodeDecodeError as exc:
+        byte = exc.object[exc.start]
+        return [f"{file}: not valid UTF-8: byte 0x{byte:02x} at offset {exc.start}"]
     try:
         doc = yaml.load(text, Loader=_StrictLoader)
         return validate_document(file, doc)
