@@ -22,6 +22,8 @@ schema:
         # ...
 ```
 
+- the file is encoded as UTF-8. YAML also allows UTF-16, but a playbook must
+  not use it.
 - the top-level document is a mapping with a `schema` mapping containing a
   `types` mapping.
 - each entry under `types` is keyed by a `<namespace>.<type>` name (for example
@@ -139,7 +141,11 @@ no single playbook can stop the others from being checked. a file the validator
 cannot walk to the end — nested deeper than it can descend, or self-referential
 through YAML anchors — is reported as
 `too deeply nested or self-referential to validate` and the run carries on with
-the rest.
+the rest. the same goes for a file it cannot load: one it cannot read is
+reported as `cannot read file: <reason>`, one that is not UTF-8 as
+`not valid UTF-8: byte 0x<hh> at offset <n>`, where `<n>` is the number of
+bytes before the offending one, and one that is not well-formed YAML as
+`YAML parse error: <details>`.
 
 a playbook that violates none of these rules is valid. the validator does not
 check field *values* (there are none in a playbook) — only the schema shape.
