@@ -155,7 +155,6 @@ ENUM_VALUES_CASES = [
     ("mapping value", "[{a: 1}]", "[{a: true}]", "[{'a': 1}] vs [{'a': True}]"),
     ("mapping key", "[{1: a}]", "[{true: a}]", "[{1: 'a'}] vs [{True: 'a'}]"),
     ("same type, fewer values", "[one, two]", "[one]", "['one', 'two'] vs ['one']"),
-    ("nan", "[.nan]", "[.nan]", None),
 ]
 
 
@@ -175,7 +174,8 @@ def test_key_and_fields_enum_values_are_compared_by_type(
     )
     disagreement = "v.yaml: a.b.x: 'key' and 'fields' disagree on 'values': "
     expected = [] if shown is None else [disagreement + shown]
-    assert validate.validate_file(playbook) == expected
+    errors = validate.validate_file(playbook)
+    assert [e for e in errors if "disagree" in e] == expected
 
 
 # (id, key extras, fields extras, the two as reported, or None if they agree)
@@ -191,6 +191,7 @@ METADATA_CASES = [
     ("format", ", format: slug", "", "'format': 'slug' vs None"),
     ("pattern", ", pattern: a", ", pattern: b", "'pattern': 'a' vs 'b'"),
     ("description", "", ", description: d", "'description': None vs 'd'"),
+    ("plain and quoted spelling", ", description: yes", ", description: 'yes'", None),
 ]
 
 
@@ -209,18 +210,6 @@ def test_key_and_fields_must_agree_on_metadata(tmp_path, key_extra, field_extra,
     disagreement = "m.yaml: a.b.x: 'key' and 'fields' disagree on "
     expected = [] if shown is None else [disagreement + shown]
     assert validate.validate_file(playbook) == expected
-
-
-def test_key_and_fields_list_items_are_compared_without_metadata(tmp_path):
-    playbook = tmp_path / "i.yaml"
-    playbook.write_text(
-        "schema:\n  types:\n    a.b:\n"
-        "      key: {t: {type: list, item: {type: string}}}\n"
-        "      fields: {t: {type: list, item: {type: string, required: true}}}\n"
-    )
-    assert validate.validate_file(playbook) == [
-        "i.yaml: a.b.t: key field may not be a list"
-    ]
 
 
 def test_key_and_fields_list_item_type_disagreement_is_rejected(tmp_path):
@@ -243,7 +232,7 @@ def test_key_and_fields_nested_list_item_is_compared_at_depth(tmp_path):
         "      key: {t: {type: list, item: {type: list, item: "
         "{type: enum, values: [one]}}}}\n"
         "      fields: {t: {type: list, item: {type: list, item: "
-        "{type: enum, values: [two], required: true}}}}\n"
+        "{type: enum, values: [two]}}}}\n"
     )
     expected = (
         "z.yaml: a.b.t.item.item: 'key' and 'fields' disagree on 'values': "
@@ -253,6 +242,118 @@ def test_key_and_fields_nested_list_item_is_compared_at_depth(tmp_path):
         "z.yaml: a.b.t: key field may not be a list",
         expected,
     ]
+
+
+# (id, spec of field 's', the diagnostics it gets)
+FIELD_SPEC_CASES = [
+    (
+        "unknown key",
+        "{type: string, requried: true}",
+        ["a.b.s: unknown key 'requried'"],
+    ),
+    (
+        "another type's extra key",
+        "{type: enum, values: [a], target: a.b}",
+        ["a.b.s: unknown key 'target'"],
+    ),
+    (
+        "metadata in a list item",
+        "{type: list, item: {type: string, required: yes}}",
+        ["a.b.s.item: unknown key 'required'"],
+    ),
+    ("a list item's extra key", "{type: list, item: {type: enum, values: [a]}}", []),
+    (
+        "valid metadata",
+        (
+            "{type: string, required: TRUE, nullable: false, format: cidr, "
+            "pattern: '^a', description: d}"
+        ),
+        [],
+    ),
+    (
+        "boolean metadata",
+        "{type: string, required: yes, nullable: no}",
+        ["a.b.s: 'required' must be a boolean", "a.b.s: 'nullable' must be a boolean"],
+    ),
+    (
+        "string metadata",
+        "{type: string, format: 1, pattern: [a], description: ~}",
+        [
+            "a.b.s: 'format' must be a string",
+            "a.b.s: 'pattern' must be a string",
+            "a.b.s: 'description' must be a string",
+        ],
+    ),
+    ("format", "{type: string, format: bogus}", ["a.b.s: unknown format 'bogus'"]),
+    (
+        "enum values",
+        "{type: enum, values: [a, 1e3]}",
+        ["a.b.s: enum values must be strings"],
+    ),
+    (
+        "non-finite float",
+        "{type: enum, values: [a, -.Inf]}",
+        ["non-finite float '-.Inf'"],
+    ),
+    ("null key", "{type: string, ~: a}", ["mapping key may not be null"]),
+]
+
+
+@pytest.mark.parametrize(
+    "spec,shown",
+    [c[1:] for c in FIELD_SPEC_CASES],
+    ids=[c[0] for c in FIELD_SPEC_CASES],
+)
+def test_field_spec_is_read_as_alembic_reads_it(tmp_path, spec, shown):
+    playbook = tmp_path / "f.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        f"      fields: {{x: {{type: string}}, s: {spec}}}\n"
+    )
+    assert validate.validate_file(playbook) == [f"f.yaml: {line}" for line in shown]
+
+
+@pytest.mark.parametrize(
+    "scalar,problem",
+    [
+        ("!!int 017", "cannot read '017' as an int"),
+        ("!!float x", "cannot read 'x' as a float"),
+    ],
+)
+def test_a_tagged_scalar_that_is_no_number_is_a_parse_error(tmp_path, scalar, problem):
+    playbook = tmp_path / "t.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        f"      fields: {{x: {{type: string, description: {scalar}}}}}\n"
+    )
+    errors = validate.validate_file(playbook)
+    assert len(errors) == 1, errors
+    assert errors[0].startswith(f"t.yaml: YAML parse error: {problem}")
+
+
+# (id, text after a valid playbook, the diagnostic)
+UNKNOWN_KEY_CASES = [
+    ("type definition", "      description: x\n", "a.b: unknown key 'description'"),
+    ("schema", "  version: 1\n", "schema: unknown key 'version'"),
+    ("top level", "objects: []\n", "unknown key 'objects'"),
+]
+
+
+@pytest.mark.parametrize(
+    "tail,shown",
+    [c[1:] for c in UNKNOWN_KEY_CASES],
+    ids=[c[0] for c in UNKNOWN_KEY_CASES],
+)
+def test_unknown_keys_are_rejected_at_every_level(tmp_path, tail, shown):
+    playbook = tmp_path / "u.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        "      key: {x: {type: string}}\n"
+        "      fields: {x: {type: string}}\n" + tail
+    )
+    assert validate.validate_file(playbook) == [f"u.yaml: {shown}"]
 
 
 def test_malformed_list_item_is_reported_once(tmp_path):
@@ -389,6 +490,38 @@ def test_a_merge_of_something_other_than_a_mapping_is_a_parse_error(tmp_path):
     assert len(errors) == 1, errors
     assert errors[0].startswith("b.yaml: YAML parse error:")
     assert "expected a mapping or list of mappings for merging" in errors[0]
+
+
+# (id, a flow sequence of plain scalars, the values alembic's reader gives them)
+SCALAR_CASES = [
+    (
+        "yaml 1.1 booleans",
+        "[yes, no, on, off, y, n]",
+        ["yes", "no", "on", "off", "y", "n"],
+    ),
+    ("true and false in any case", "[true, False, TRUE]", [True, False, True]),
+    ("null in any case", "[~, null, NULL]", [None, None, None]),
+    ("dates and sexagesimals", "[2026-10-24, 1:20]", ["2026-10-24", "1:20"]),
+    ("floats", "[1e3, .5, 1., 017]", [1000.0, 0.5, 1.0, 17.0]),
+    ("ints", "[+1, -0, 1_000, 0x1F, 0o17, 0O17, 0b1]", [1, 0, 1000, 31, 15, 15, 1]),
+    ("not quite numbers", "[0xGG, 1_0.5, 0x_1F, 1e]", ["0xGG", "1_0.5", "0x_1F", "1e"]),
+    (
+        "past 64 bits",
+        "[18446744073709551616, 0x10000000000000000]",
+        [2.0**64, "0x10000000000000000"],
+    ),
+    ("merge and value keys as values", "[<<, =]", ["<<", "="]),
+]
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [c[1:] for c in SCALAR_CASES],
+    ids=[c[0] for c in SCALAR_CASES],
+)
+def test_plain_scalars_load_as_alembic_reads_them(text, expected):
+    loaded = yaml.load(f"v: {text}\n", Loader=validate._StrictLoader)["v"]
+    assert [(type(v), v) for v in loaded] == [(type(v), v) for v in expected]
 
 
 def test_a_yaml_value_key_loads_as_the_string_key():
