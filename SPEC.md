@@ -26,12 +26,14 @@ schema:
 - the file is encoded as UTF-8. YAML also allows UTF-16, but a playbook must
   not use it.
 - the top-level document is a mapping with a `schema` mapping containing a
-  `types` mapping.
+  `types` mapping, and nothing else. alembic also reads `include`, `imports`,
+  `scope` and `objects` from an inventory file, but a playbook is only a schema.
 - each entry under `types` is keyed by a `<namespace>.<type>` name (for example
   `dcim.device`) — exactly two non-empty `.`-separated segments. namespaces are
   **file-scoped**: two playbooks may reuse the same namespace without conflict,
   and references never cross files.
-- each type definition has a `key` mapping and a `fields` mapping.
+- each type definition has a `key` mapping and a `fields` mapping, and no other
+  keys.
   - `fields` declares every field of the type.
   - `key` declares the subset of fields that identify an instance. a key may
     name several fields, but must name at least one, and none of them may be a
@@ -40,10 +42,17 @@ schema:
     `type`, the same extra key that type requires (`target` for
     `ref`/`list_ref`, `values` for `enum`, `item` for `list`) and the same
     metadata. a key field is always required, so neither copy needs to say so.
-- a **field spec** is a mapping with a `type` and optional extra keys
-  (`required`, `values`, `target`, `item`, ...). field specs appear under both
-  `key` and `fields`, and inside a `list` item; they are validated the same way
-  wherever they appear.
+- a **field spec** is a mapping with a `type`, the extra key that type requires
+  (if any) and optional metadata. field specs appear under both `key` and
+  `fields`. a `list`'s `item` is a narrower spec: a `type` and that type's
+  extra key, with no metadata.
+- plain (unquoted) scalars are read the way alembic reads them. only `true` and
+  `false`, in any case, are booleans; `~`, `null` in any case and an empty value
+  are null. decimal ints (`1_000` included), `0x`/`0o`/`0b` ints and decimal
+  floats (`1e3`, `.5`, `1.`, and `017`, which is 17.0) are numbers. everything
+  else is a string, including `yes`/`no`/`on`/`off`, dates such as `2026-10-24`
+  and times such as `1:20`, so `description: yes` and `description: 'yes'` say
+  the same thing.
 - YAML anchors and the `<<` merge key may be used freely. an anchored mapping
   may be aliased (`*name`) or merged into another mapping (`<<: *name`, or
   `<<: [*a, *b]` to merge several — earlier aliases win), and the merging
@@ -73,9 +82,11 @@ schema:
 | `list_ref`   | `target: <ns>.<type>`        | a multi relationship to another type    |
 | `list`       | `item: { type: <T> }`        | a list of scalar/typed items            |
 
-`required`, `nullable`, `format`, `pattern` and `description` are metadata and
-may appear on any field spec; only rules 10 and 14 constrain them. any other
-extra keys are ignored.
+`required`, `nullable`, `format`, `pattern` and `description` are metadata. they
+may appear on a field spec under `key` or `fields`, but not in a list `item`.
+`required` and `nullable` are booleans; `format`, `pattern` and `description`
+are strings, and `format` is one of `slug`, `ip_address`, `cidr`, `prefix`,
+`mac` or `uuid`. a field spec takes no other keys.
 
 ## validation rules
 
@@ -90,8 +101,9 @@ exits non-zero if any playbook is invalid. the rules are:
 3. **known type** — every field spec has a `type`, and that `type` is one of the
    vocabulary above. otherwise: `missing 'type'` / `'type' must be a string` /
    `unknown type '<T>'`.
-4. **enum values** — an `enum` field has a non-empty `values` list. otherwise:
-   `enum requires a non-empty 'values' list`.
+4. **enum values** — an `enum` field has a non-empty `values` list of strings;
+   `[on, off]` qualifies, `[1, 0]` does not. otherwise:
+   `enum requires a non-empty 'values' list` / `enum values must be strings`.
 5. **ref target present** — a `ref` / `list_ref` field has a non-empty `target`
    string. otherwise: `<type> requires a 'target'`.
 6. **list item present** — a `list` field has an `item` mapping with a `type`
@@ -118,10 +130,10 @@ exits non-zero if any playbook is invalid. the rules are:
     `required` or `nullable` reading as `false`. these are compared by type as
     well as by value, item by item: `1`, `1.0` and `true` are three different
     values, so `values: [1, 0]` does not agree with `values: [true, false]`.
-    a `list`'s `item` is a bare type to alembic, so two `item` specs are
-    compared on `type` and its extra key alone, at every depth; a nested
-    disagreement is reported against the item, as `<type>.<field>.item`. only
-    the first disagreement is reported. otherwise:
+    two `item` specs, which hold only `type` and its extra key, are compared
+    the same way at every depth; a nested disagreement is reported against the
+    item, as `<type>.<field>.item`. only the first disagreement is reported.
+    otherwise:
     `'key' and 'fields' disagree on '<attr>': <key value> vs <fields value>`.
 11. **key is non-empty** — a `key` mapping names at least one field; a type
     whose instances nothing identifies is meaningless. otherwise:
@@ -140,13 +152,33 @@ exits non-zero if any playbook is invalid. the rules are:
 15. **key field not composite** — a field under `key` is not a `list` or a
     `list_ref`; neither has a scalar identity. otherwise:
     `key field may not be a <type>`.
+16. **no unknown keys** — a mapping holds only the keys this document defines
+    for it: the top level only `schema`, `schema` only `types`, a type
+    definition only `key` and `fields`, a field spec only `type`, its type's
+    extra key and the five metadata keys, and a list `item` only `type` and its
+    type's extra key. a typo such as `requried`, or `values` on a `string`, is
+    caught here. otherwise: `unknown key '<key>'`, after the location of the
+    mapping (`<type>.<field>`, `<type>`, `schema`, or none at the top level).
+17. **metadata types** — `required` and `nullable` are booleans, and `format`,
+    `pattern` and `description` are strings. an explicit null is not an absent
+    key, so `description: ~` fails too. otherwise: `'<attr>' must be a boolean`
+    / `'<attr>' must be a string`.
+18. **known format** — a `format` is one of `slug`, `ip_address`, `cidr`,
+    `prefix`, `mac` or `uuid`. otherwise: `unknown format '<format>'`.
+19. **finite numbers** — no plain scalar is a non-finite float: `.inf`,
+    `+.inf`, `-.inf` or `.nan` in any case, or a decimal too large for a float,
+    such as `1e400`. the first one is reported and parsing of that file stops.
+    otherwise: `non-finite float '<text>'`.
+20. **no null keys** — no mapping key is null. the first one is reported and
+    parsing of that file stops. otherwise: `mapping key may not be null`.
 
-rules 3–7 and 13 apply to every field spec, including those under `key` and
-those nested in a `list` item; rule 10 likewise compares a key field's two
-declarations at every depth. rules 14 and 15 look only at the spec under `key`,
-and rule 10 holds the `fields` copy to it. rule 10 completes rule 8: rule 8
-requires a key field to be declared under `fields` at all, rule 10 requires the
-two declarations to say the same thing.
+rules 3–7, 13 and 16 apply to every field spec, including those under `key` and
+those nested in a `list` item; rules 17 and 18 apply wherever metadata may
+appear. rule 10 likewise compares a key field's two declarations at every depth.
+rules 14 and 15 look only at the spec under `key`, and rule 10 holds the
+`fields` copy to it. rule 10 completes rule 8: rule 8 requires a key field to be
+declared under `fields` at all, rule 10 requires the two declarations to say the
+same thing.
 
 no single playbook can stop the others from being checked. a file the validator
 cannot walk to the end — nested deeper than it can descend, or self-referential

@@ -11,9 +11,12 @@ Depends only on the standard library and PyYAML.
 
 from __future__ import annotations
 
+import math
+import re
 import sys
 from collections.abc import Hashable
 from pathlib import Path
+from typing import ClassVar
 
 import yaml
 
@@ -54,6 +57,9 @@ DEFINING_KEYS = {
     "list": "item",
 }
 
+# the ``format`` values alembic accepts.
+FORMATS = frozenset({"slug", "ip_address", "cidr", "prefix", "mac", "uuid"})
+
 
 def validate_field_spec(
     errors: list[str],
@@ -62,14 +68,16 @@ def validate_field_spec(
     spec: object,
     defined_types: set[str],
     seen: tuple[int, ...] = (),
+    is_item: bool = False,
 ) -> None:
     """Validate one field spec (a ``{type: ...}`` mapping).
 
     ``label`` is the ``type.field`` prefix used in diagnostics; ``defined_types``
     is the set of type names defined in the same file, used to resolve ref
     targets.  Applies to specs under both ``key`` and ``fields``, and recurses
-    into ``list`` item specs.  ``seen`` holds the ``id()`` of the specs on the
-    path to this one; callers do not pass it.
+    into ``list`` item specs, which take no metadata.  ``seen`` holds the
+    ``id()`` of the specs on the path to this one; callers do not pass it, nor
+    ``is_item``.
     """
     if not isinstance(spec, dict):
         errors.append(f"{file}: {label}: field spec must be a mapping")
@@ -89,10 +97,21 @@ def validate_field_spec(
         errors.append(f"{file}: {label}: unknown type '{ftype}'")
         return
 
+    allowed = {"type"} if is_item else {"type", *METADATA_DEFAULTS}
+    if ftype in DEFINING_KEYS:
+        allowed.add(DEFINING_KEYS[ftype])
+    for key in spec:
+        if key not in allowed:
+            errors.append(f"{file}: {label}: unknown key '{key}'")
+    if not is_item:
+        validate_metadata(errors, file, label, spec)
+
     if ftype == "enum":
         values = spec.get("values")
         if not isinstance(values, list) or not values:
             errors.append(f"{file}: {label}: enum requires a non-empty 'values' list")
+        elif not all(isinstance(value, str) for value in values):
+            errors.append(f"{file}: {label}: enum values must be strings")
     elif ftype in REF_TYPES:
         target = spec.get("target")
         if not isinstance(target, str) or not target:
@@ -108,8 +127,27 @@ def validate_field_spec(
             errors.append(f"{file}: {label}: list requires 'item.type'")
         else:
             validate_field_spec(
-                errors, file, f"{label}.item", item, defined_types, seen + (id(spec),)
+                errors,
+                file,
+                f"{label}.item",
+                item,
+                defined_types,
+                seen + (id(spec),),
+                is_item=True,
             )
+
+
+def validate_metadata(errors: list[str], file: str, label: str, spec: dict) -> None:
+    """Check that a field spec's metadata has the types alembic reads it as."""
+    for attr in ("required", "nullable"):
+        if attr in spec and not isinstance(spec[attr], bool):
+            errors.append(f"{file}: {label}: '{attr}' must be a boolean")
+    for attr in ("format", "pattern", "description"):
+        if attr in spec and not isinstance(spec[attr], str):
+            errors.append(f"{file}: {label}: '{attr}' must be a string")
+    fmt = spec.get("format")
+    if isinstance(fmt, str) and fmt not in FORMATS:
+        errors.append(f"{file}: {label}: unknown format '{fmt}'")
 
 
 def _same_value(a: object, b: object) -> bool:
@@ -222,6 +260,9 @@ def validate_type(
     if not isinstance(definition, dict):
         errors.append(f"{file}: {type_name}: type definition must be a mapping")
         return
+    for attr in definition:
+        if attr not in ("key", "fields"):
+            errors.append(f"{file}: {type_name}: unknown key '{attr}'")
 
     key = definition.get("key")
     fields = definition.get("fields")
@@ -270,7 +311,14 @@ def validate_document(file: str, doc: object) -> list[str]:
         errors.append(f"{file}: top-level document must be a mapping")
         return errors
 
+    for key in doc:
+        if key != "schema":
+            errors.append(f"{file}: unknown key '{key}'")
     schema = doc.get("schema")
+    if isinstance(schema, dict):
+        for key in schema:
+            if key != "types":
+                errors.append(f"{file}: schema: unknown key '{key}'")
     types = schema.get("types") if isinstance(schema, dict) else None
     if not isinstance(types, dict):
         errors.append(f"{file}: missing 'schema.types' mapping")
@@ -284,7 +332,30 @@ def validate_document(file: str, doc: object) -> list[str]:
 
 
 _MERGE_TAG = "tag:yaml.org,2002:merge"
-_VALUE_TAG = "tag:yaml.org,2002:value"
+_NON_FINITE = r"[-+]?\.(?i:inf|nan)"
+
+# how alembic's yaml reader types a plain scalar; any other plain scalar is a string.
+_PLAIN_SCALARS = [
+    ("tag:yaml.org,2002:null", r"~|(?i:null)|", ["~", "n", "N", ""]),
+    ("tag:yaml.org,2002:bool", r"(?i:true|false)", list("tTfF")),
+    (
+        "tag:yaml.org,2002:int",
+        (
+            r"[-+]?(?:0|[1-9][0-9]*(?:_[0-9]+)*|0[xX][0-9a-fA-F]+(?:_[0-9a-fA-F]+)*"
+            r"|0[oO][0-7]+(?:_[0-7]+)*|0[bB][01]+(?:_[01]+)*)"
+        ),
+        list("-+0123456789"),
+    ),
+    (
+        "tag:yaml.org,2002:float",
+        r"[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][-+]?[0-9]+)?|" + _NON_FINITE,
+        list("-+.0123456789"),
+    ),
+    (_MERGE_TAG, r"<<", ["<"]),
+]
+
+# the ints alembic reads as ints: an i64 or a u64.
+_INT_RANGE = range(-(2**63), 2**64)
 
 
 class _DuplicateKeyError(yaml.constructor.ConstructorError):
@@ -300,8 +371,16 @@ class _DuplicateKeyError(yaml.constructor.ConstructorError):
         )
 
 
+class _RejectedScalarError(yaml.constructor.ConstructorError):
+    """A scalar alembic's reader refuses; ``message`` is the diagnostic."""
+
+    def __init__(self, message: str, node: yaml.Node) -> None:
+        self.message = message
+        super().__init__(None, None, message, node.start_mark)
+
+
 class _StrictLoader(yaml.SafeLoader):
-    """A ``SafeLoader`` that rejects duplicate mapping keys.
+    """A ``SafeLoader`` that reads scalars as alembic does and rejects duplicate keys.
 
     PyYAML keeps only the last value when a mapping repeats a key, silently
     dropping the earlier definition — so a playbook with two type definitions
@@ -312,9 +391,36 @@ class _StrictLoader(yaml.SafeLoader):
     brings in keys the mapping may then override, which is no repeat.
     """
 
+    yaml_implicit_resolvers: ClassVar[dict] = {}
+
     def __init__(self, stream: object) -> None:
         super().__init__(stream)
         self._checked: set[yaml.Node] = set()
+
+    def construct_int(self, node: yaml.ScalarNode) -> int | float | str:
+        """An int, or past 64 bits a float if written in decimal, else a string."""
+        text = self.construct_scalar(node)
+        try:
+            value = int(text, 0)
+        except ValueError:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"cannot read {text!r} as an int", node.start_mark
+            ) from None
+        if value in _INT_RANGE:
+            return value
+        return self.construct_float(node) if text.lstrip("+-").isdigit() else text
+
+    def construct_float(self, node: yaml.ScalarNode) -> float:
+        text = self.construct_scalar(node)
+        try:
+            value = math.inf if re.fullmatch(_NON_FINITE, text) else float(text)
+        except ValueError:
+            raise yaml.constructor.ConstructorError(
+                None, None, f"cannot read {text!r} as a float", node.start_mark
+            ) from None
+        if not math.isfinite(value):
+            raise _RejectedScalarError(f"non-finite float '{text}'", node)
+        return value
 
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
         self._reject_duplicate_keys(node, deep)
@@ -335,12 +441,9 @@ class _StrictLoader(yaml.SafeLoader):
             if key_node.tag == _MERGE_TAG:
                 self._reject_duplicate_keys(value_node, deep)
                 continue
-            # ``=`` is only a plain key once ``flatten_mapping`` has retagged it.
-            key = (
-                key_node.value
-                if key_node.tag == _VALUE_TAG
-                else self.construct_object(key_node, deep=deep)
-            )
+            key = self.construct_object(key_node, deep=deep)
+            if key is None:
+                raise _RejectedScalarError("mapping key may not be null", key_node)
             if not isinstance(key, Hashable):
                 raise yaml.constructor.ConstructorError(
                     "while constructing a mapping",
@@ -351,6 +454,13 @@ class _StrictLoader(yaml.SafeLoader):
             if key in seen:
                 raise _DuplicateKeyError(key, node, key_node)
             seen.add(key)
+
+
+for _tag, _pattern, _first in _PLAIN_SCALARS:
+    _StrictLoader.add_implicit_resolver(_tag, re.compile(f"(?:{_pattern})\\Z"), _first)
+_StrictLoader.add_constructor("tag:yaml.org,2002:int", _StrictLoader.construct_int)
+_StrictLoader.add_constructor("tag:yaml.org,2002:float", _StrictLoader.construct_float)
+_StrictLoader.add_constructor(_MERGE_TAG, _StrictLoader.construct_yaml_str)
 
 
 def validate_file(path: Path) -> list[str]:
@@ -368,6 +478,8 @@ def validate_file(path: Path) -> list[str]:
         return validate_document(file, doc)
     except _DuplicateKeyError as exc:
         return [f"{file}: duplicate key '{exc.key}'"]
+    except _RejectedScalarError as exc:
+        return [f"{file}: {exc.message}"]
     except yaml.YAMLError as exc:
         return [f"{file}: YAML parse error: {exc}"]
     except RecursionError:
