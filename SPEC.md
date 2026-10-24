@@ -112,7 +112,10 @@ exits non-zero if any playbook is invalid. the rules are:
 10. **key and fields agree** — where a field is declared under both `key` and
     `fields`, the two specs name the same `type` and the same extra key that
     type requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item`
-    for `list`). anything else, `required` included, may differ. a `list`'s two
+    for `list`). `target` and `values` are compared by type as well as by
+    value, item by item: `1`, `1.0` and `true` are three different values, so
+    `values: [1, 0]` does not agree with `values: [true, false]`. anything
+    else, `required` included, may differ. a `list`'s two
     `item` specs are compared by this same rule rather than for equality, so it
     holds at every depth — metadata nested inside an item may differ too, and a
     nested disagreement is reported against the item, as

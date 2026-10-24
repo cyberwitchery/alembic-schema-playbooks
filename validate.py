@@ -100,6 +100,21 @@ def validate_field_spec(
             )
 
 
+def _same_value(a: object, b: object) -> bool:
+    """True if ``a == b`` and their types match, at every level of a list or mapping."""
+    if a is b:
+        return True
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, list):
+        return len(a) == len(b) and all(map(_same_value, a, b))
+    if isinstance(a, dict):
+        a = {(type(k), k): v for k, v in a.items()}
+        b = {(type(k), k): v for k, v in b.items()}
+        return a.keys() == b.keys() and all(_same_value(v, b[k]) for k, v in a.items())
+    return a == b
+
+
 def compare_key_and_field_spec(
     errors: list[str],
     file: str,
@@ -145,7 +160,7 @@ def compare_key_and_field_spec(
             seen + (pair,),
         )
         return
-    if key_spec.get(attr) != field_spec.get(attr):
+    if not _same_value(key_spec.get(attr), field_spec.get(attr)):
         errors.append(
             f"{file}: {label}: 'key' and 'fields' disagree on '{attr}': "
             f"{key_spec.get(attr)!r} vs {field_spec.get(attr)!r}"
