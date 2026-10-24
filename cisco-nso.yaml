@@ -5,7 +5,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         code: { type: string }
         region: { type: string }
         description: { type: text }
@@ -14,7 +14,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         vendor: { type: string }
         platform: { type: string }
         model: { type: string }
@@ -30,8 +30,8 @@ schema:
         device: { type: ref, target: nso.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: nso.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: nso.device }
         interface_type: { type: enum, values: [ethernet, lag, loopback, management, vlan, tunnel, subinterface, other] }
         admin_status: { type: enum, values: [up, down] }
         oper_status: { type: enum, values: [up, down, unknown] }
@@ -44,7 +44,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         service_type: { type: enum, values: [l2vpn, l3vpn, internet, firewall, load_balancer, other] }
         status: { type: enum, values: [active, planned, suspended, decommissioned] }
         customer: { type: string }
@@ -55,7 +55,7 @@ schema:
       key:
         address: { type: ip_address }
       fields:
-        address: { type: ip_address, required: true }
+        address: { type: ip_address }
         device: { type: ref, target: nso.device }
         interface: { type: ref, target: nso.interface }
         status: { type: enum, values: [active, reserved, deprecated] }

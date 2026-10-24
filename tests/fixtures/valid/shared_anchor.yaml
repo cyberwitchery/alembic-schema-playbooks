@@ -3,7 +3,8 @@ schema:
   types:
     net.thing:
       key:
-        tags: &tags { type: list, item: { type: string } }
+        name: { type: string }
       fields:
-        tags: *tags
+        name: { type: string }
+        tags: &tags { type: list, item: { type: string } }
         labels: *tags

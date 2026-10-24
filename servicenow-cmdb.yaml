@@ -5,7 +5,7 @@ schema:
       key:
         user_name: { type: string }
       fields:
-        user_name: { type: string, required: true }
+        user_name: { type: string }
         full_name: { type: string }
         email: { type: string }
         department: { type: string }
@@ -17,7 +17,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         code: { type: string }
         address: { type: text }
         city: { type: string }
@@ -27,7 +27,7 @@ schema:
       key:
         sys_id: { type: string }
       fields:
-        sys_id: { type: string, required: true }
+        sys_id: { type: string }
         name: { type: string, required: true }
         class_name: { type: string }
         status: { type: enum, values: [active, inactive, maintenance, retired] }
@@ -45,7 +45,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         service_type: { type: enum, values: [business, technical] }
         status: { type: enum, values: [active, inactive, planned, retired] }
         owner: { type: ref, target: servicenow.user }

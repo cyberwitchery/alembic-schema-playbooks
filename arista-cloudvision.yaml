@@ -5,7 +5,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         status: { type: enum, values: [active, maintenance, decommissioned] }
         vendor: { type: string }
         model: { type: string }
@@ -19,8 +19,8 @@ schema:
         device: { type: ref, target: cloudvision.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: cloudvision.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: cloudvision.device }
         interface_type: { type: enum, values: [ethernet, lag, loopback, management, vlan, other] }
         admin_status: { type: enum, values: [up, down] }
         oper_status: { type: enum, values: [up, down, unknown] }
@@ -32,7 +32,7 @@ schema:
       key:
         vlan_id: { type: int }
       fields:
-        vlan_id: { type: int, required: true }
+        vlan_id: { type: int }
         name: { type: string }
         status: { type: enum, values: [active, suspended, deprecated] }
         description: { type: text }
@@ -41,7 +41,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         status: { type: enum, values: [active, inactive] }
         description: { type: text }
 
@@ -49,7 +49,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         vlan: { type: ref, target: cloudvision.vlan }
         vrf: { type: ref, target: cloudvision.vrf }
         description: { type: text }

@@ -1,0 +1,8 @@
+# rule: a key field must not be a list or list_ref
+schema:
+  types:
+    net.thing:
+      key:
+        peers: { type: list_ref, target: net.thing }
+      fields:
+        peers: { type: list_ref, target: net.thing }

@@ -5,7 +5,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         ip_address: { type: ip_address }
         status: { type: enum, values: [up, down, warning, unknown] }
         vendor: { type: string }
@@ -20,8 +20,8 @@ schema:
         node: { type: ref, target: orion.node }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        node: { type: ref, target: orion.node, required: true }
+        name: { type: string }
+        node: { type: ref, target: orion.node }
         status: { type: enum, values: [up, down, warning, unknown] }
         speed: { type: int }
         in_utilization: { type: float }
@@ -34,8 +34,8 @@ schema:
         node: { type: ref, target: orion.node }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        node: { type: ref, target: orion.node, required: true }
+        name: { type: string }
+        node: { type: ref, target: orion.node }
         size_gb: { type: float }
         used_gb: { type: float }
         status: { type: enum, values: [normal, warning, critical] }
@@ -45,7 +45,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         severity: { type: enum, values: [info, warning, critical] }
         status: { type: enum, values: [active, acknowledged, cleared] }
         node: { type: ref, target: orion.node }

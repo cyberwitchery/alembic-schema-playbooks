@@ -34,6 +34,18 @@ SIMPLE_TYPES = frozenset(
 REF_TYPES = frozenset({"ref", "list_ref"})
 KNOWN_TYPES = SIMPLE_TYPES | REF_TYPES | {"enum", "list"}
 
+# types with no scalar identity form, so alembic rejects them as key fields.
+COMPOSITE_TYPES = frozenset({"list", "list_ref"})
+
+# the metadata alembic reads from a field spec, with the value an absent key reads as.
+METADATA_DEFAULTS = {
+    "required": False,
+    "nullable": False,
+    "format": None,
+    "pattern": None,
+    "description": None,
+}
+
 # for each compound type, the extra key that carries its meaning beyond ``type``.
 DEFINING_KEYS = {
     "enum": "values",
@@ -122,21 +134,20 @@ def compare_key_and_field_spec(
     key_spec: object,
     field_spec: object,
     seen: tuple[tuple[int, int], ...] = (),
-) -> None:
-    """Check that a field declared under both ``key`` and ``fields`` agrees.
+) -> bool:
+    """Check that a key field's two declarations agree on its type.
 
-    Only the attributes that determine the field's shape are compared: ``type``,
-    plus whichever extra key that type requires (``target``, ``values``,
-    ``item``).  Metadata such as ``required`` is free to differ — playbooks
-    conventionally mark it only under ``fields``.  A ``list``'s two ``item``
-    specs are compared by this same rule, so it holds at every depth.  A spec
-    pair already on the path is left to ``validate_field_spec`` to report.
+    Compares ``type``, plus whichever extra key that type requires (``target``,
+    ``values``, ``item``).  A ``list``'s two ``item`` specs are compared by this
+    same rule, so it holds at every depth.  Reports the first disagreement and
+    returns whether there was one.  A spec pair already on the path is left to
+    ``validate_field_spec`` to report.
     """
     if not isinstance(key_spec, dict) or not isinstance(field_spec, dict):
-        return
+        return False
     pair = (id(key_spec), id(field_spec))
     if pair in seen:
-        return
+        return False
 
     key_type = key_spec.get("type")
     field_type = field_spec.get("type")
@@ -145,13 +156,13 @@ def compare_key_and_field_spec(
             f"{file}: {label}: 'key' and 'fields' disagree on 'type': "
             f"{key_type!r} vs {field_type!r}"
         )
-        return
+        return True
 
     attr = DEFINING_KEYS.get(key_type) if isinstance(key_type, str) else None
     if attr is None:
-        return
+        return False
     if key_type == "list":
-        compare_key_and_field_spec(
+        return compare_key_and_field_spec(
             errors,
             file,
             f"{label}.{attr}",
@@ -159,12 +170,34 @@ def compare_key_and_field_spec(
             field_spec.get(attr),
             seen + (pair,),
         )
-        return
     if not _same_value(key_spec.get(attr), field_spec.get(attr)):
         errors.append(
             f"{file}: {label}: 'key' and 'fields' disagree on '{attr}': "
             f"{key_spec.get(attr)!r} vs {field_spec.get(attr)!r}"
         )
+        return True
+    return False
+
+
+def compare_key_and_field_metadata(
+    errors: list[str], file: str, label: str, key_spec: object, field_spec: object
+) -> None:
+    """Check that a key field's two declarations agree on its metadata.
+
+    An absent key counts as its ``METADATA_DEFAULTS`` value, so leaving out
+    ``required`` agrees with ``required: false``.  Reports the first disagreement.
+    """
+    if not isinstance(key_spec, dict) or not isinstance(field_spec, dict):
+        return
+    for attr, default in METADATA_DEFAULTS.items():
+        key_value = key_spec.get(attr, default)
+        field_value = field_spec.get(attr, default)
+        if not _same_value(key_value, field_value):
+            errors.append(
+                f"{file}: {label}: 'key' and 'fields' disagree on '{attr}': "
+                f"{key_value!r} vs {field_value!r}"
+            )
+            return
 
 
 def _is_dotted_type_name(name: object) -> bool:
@@ -211,12 +244,20 @@ def validate_type(
         for field_name, spec in key.items():
             label = f"{type_name}.{field_name}"
             validate_field_spec(errors, file, label, spec, defined_types)
+            if isinstance(spec, dict):
+                ftype = spec.get("type")
+                if spec.get("nullable") is True:
+                    errors.append(f"{file}: {label}: key field may not be nullable")
+                if isinstance(ftype, str) and ftype in COMPOSITE_TYPES:
+                    errors.append(f"{file}: {label}: key field may not be a {ftype}")
             if not fields_ok:
                 continue
             if field_name not in fields:
                 errors.append(f"{file}: {label}: key field not present in 'fields'")
-            else:
-                compare_key_and_field_spec(
+            elif not compare_key_and_field_spec(
+                errors, file, label, spec, fields[field_name]
+            ):
+                compare_key_and_field_metadata(
                     errors, file, label, spec, fields[field_name]
                 )
 

@@ -18,7 +18,8 @@ schema:
       key:
         <field>: { type: <T> }
       fields:
-        <field>: { type: <T>, required: true }
+        <field>: { type: <T> }
+        <other>: { type: <T>, required: true }
         # ...
 ```
 
@@ -32,14 +33,13 @@ schema:
   and references never cross files.
 - each type definition has a `key` mapping and a `fields` mapping.
   - `fields` declares every field of the type.
-  - `key` declares the subset of fields that identify an instance. a key may be
-    composite (several fields), but must name at least one. every field named
-    in `key` must also be declared in `fields`, and the two specs must **agree**
-    on what the field is: the same `type`, and the same extra key that type
-    requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item` for
-    `list`). for a `list`, the two `item` specs must agree by this same rule,
-    recursively. metadata may differ — playbooks conventionally mark `required`
-    only under `fields`.
+  - `key` declares the subset of fields that identify an instance. a key may
+    name several fields, but must name at least one, and none of them may be a
+    `list`, a `list_ref` or `nullable`. every field named in `key` must also be
+    declared in `fields`, and the two specs must be **identical**: the same
+    `type`, the same extra key that type requires (`target` for
+    `ref`/`list_ref`, `values` for `enum`, `item` for `list`) and the same
+    metadata. a key field is always required, so neither copy needs to say so.
 - a **field spec** is a mapping with a `type` and optional extra keys
   (`required`, `values`, `target`, `item`, ...). field specs appear under both
   `key` and `fields`, and inside a `list` item; they are validated the same way
@@ -73,8 +73,9 @@ schema:
 | `list_ref`   | `target: <ns>.<type>`        | a multi relationship to another type    |
 | `list`       | `item: { type: <T> }`        | a list of scalar/typed items            |
 
-`required: true` may appear on any field spec; it is metadata and is not
-otherwise constrained. any other extra keys are ignored.
+`required`, `nullable`, `format`, `pattern` and `description` are metadata and
+may appear on any field spec; only rules 10 and 14 constrain them. any other
+extra keys are ignored.
 
 ## validation rules
 
@@ -110,16 +111,17 @@ exits non-zero if any playbook is invalid. the rules are:
    the first duplicate is reported and parsing of that file stops. otherwise:
    `duplicate key '<key>'`.
 10. **key and fields agree** — where a field is declared under both `key` and
-    `fields`, the two specs name the same `type` and the same extra key that
-    type requires (`target` for `ref`/`list_ref`, `values` for `enum`, `item`
-    for `list`). `target` and `values` are compared by type as well as by
-    value, item by item: `1`, `1.0` and `true` are three different values, so
-    `values: [1, 0]` does not agree with `values: [true, false]`. anything
-    else, `required` included, may differ. a `list`'s two
-    `item` specs are compared by this same rule rather than for equality, so it
-    holds at every depth — metadata nested inside an item may differ too, and a
-    nested disagreement is reported against the item, as
-    `<type>.<field>.item`. otherwise:
+    `fields`, the two specs are identical as alembic reads them: the same
+    `type`, the same extra key that type requires (`target` for
+    `ref`/`list_ref`, `values` for `enum`, `item` for `list`), and the same
+    `required`, `nullable`, `format`, `pattern` and `description`, an absent
+    `required` or `nullable` reading as `false`. these are compared by type as
+    well as by value, item by item: `1`, `1.0` and `true` are three different
+    values, so `values: [1, 0]` does not agree with `values: [true, false]`.
+    a `list`'s `item` is a bare type to alembic, so two `item` specs are
+    compared on `type` and its extra key alone, at every depth; a nested
+    disagreement is reported against the item, as `<type>.<field>.item`. only
+    the first disagreement is reported. otherwise:
     `'key' and 'fields' disagree on '<attr>': <key value> vs <fields value>`.
 11. **key is non-empty** — a `key` mapping names at least one field; a type
     whose instances nothing identifies is meaningless. otherwise:
@@ -133,12 +135,18 @@ exits non-zero if any playbook is invalid. the rules are:
     describes a list of unbounded depth that no document can satisfy. it is the
     nesting that is rejected, not the sharing: one anchored spec reused by two
     sibling fields is fine. otherwise: `field spec nests itself`.
+14. **key field not nullable** — a field under `key` is not `nullable: true`;
+    a null has no identity. otherwise: `key field may not be nullable`.
+15. **key field not composite** — a field under `key` is not a `list` or a
+    `list_ref`; neither has a scalar identity. otherwise:
+    `key field may not be a <type>`.
 
 rules 3–7 and 13 apply to every field spec, including those under `key` and
 those nested in a `list` item; rule 10 likewise compares a key field's two
-declarations at every depth. rule 10 completes rule 8: rule 8 requires a key
-field to be declared under `fields` at all, rule 10 requires the two
-declarations to say the same thing.
+declarations at every depth. rules 14 and 15 look only at the spec under `key`,
+and rule 10 holds the `fields` copy to it. rule 10 completes rule 8: rule 8
+requires a key field to be declared under `fields` at all, rule 10 requires the
+two declarations to say the same thing.
 
 no single playbook can stop the others from being checked. a file the validator
 cannot walk to the end — nested deeper than it can descend, or self-referential
