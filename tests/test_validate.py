@@ -148,6 +148,36 @@ def test_key_and_fields_target_disagreement_is_rejected(tmp_path):
     ]
 
 
+# (id, key values, fields values, the two as reported, or None if they agree)
+ENUM_VALUES_CASES = [
+    ("int vs bool", "[1, 0]", "[true, false]", "[1, 0] vs [True, False]"),
+    ("int vs float", "[1, 2]", "[1.0, 2.0]", "[1, 2] vs [1.0, 2.0]"),
+    ("mapping value", "[{a: 1}]", "[{a: true}]", "[{'a': 1}] vs [{'a': True}]"),
+    ("mapping key", "[{1: a}]", "[{true: a}]", "[{1: 'a'}] vs [{True: 'a'}]"),
+    ("same type, fewer values", "[one, two]", "[one]", "['one', 'two'] vs ['one']"),
+    ("nan", "[.nan]", "[.nan]", None),
+]
+
+
+@pytest.mark.parametrize(
+    "key_values,field_values,shown",
+    [c[1:] for c in ENUM_VALUES_CASES],
+    ids=[c[0] for c in ENUM_VALUES_CASES],
+)
+def test_key_and_fields_enum_values_are_compared_by_type(
+    tmp_path, key_values, field_values, shown
+):
+    playbook = tmp_path / "v.yaml"
+    playbook.write_text(
+        "schema:\n  types:\n    a.b:\n"
+        f"      key: {{x: {{type: enum, values: {key_values}}}}}\n"
+        f"      fields: {{x: {{type: enum, values: {field_values}}}}}\n"
+    )
+    disagreement = "v.yaml: a.b.x: 'key' and 'fields' disagree on 'values': "
+    expected = [] if shown is None else [disagreement + shown]
+    assert validate.validate_file(playbook) == expected
+
+
 def test_key_and_fields_may_differ_on_metadata(tmp_path):
     # every shipped playbook marks 'required' only under 'fields'
     playbook = tmp_path / "m.yaml"
