@@ -6,7 +6,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         description: { type: text }
         tags: { type: list, item: { type: string } }
 
@@ -15,8 +15,8 @@ schema:
         site: { type: ref, target: net.site }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        site: { type: ref, target: net.site, required: true }
+        name: { type: string }
+        site: { type: ref, target: net.site }
         role: { type: enum, values: [spine, leaf] }
         mgmt_ip: { type: ip_address }
         mac_address: { type: mac }
@@ -31,4 +31,4 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }

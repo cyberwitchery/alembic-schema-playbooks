@@ -5,4 +5,4 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }

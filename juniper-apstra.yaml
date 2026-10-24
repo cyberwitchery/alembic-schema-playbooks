@@ -5,7 +5,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         status: { type: enum, values: [active, planned, archived] }
         description: { type: text }
 
@@ -13,7 +13,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         row: { type: string }
         position: { type: int }
         site: { type: string }
@@ -23,7 +23,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         role: { type: enum, values: [spine, leaf, border, access, server, other] }
         status: { type: enum, values: [active, planned, maintenance, decommissioned] }
         vendor: { type: string }
@@ -38,8 +38,8 @@ schema:
         device: { type: ref, target: apstra.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: apstra.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: apstra.device }
         interface_type: { type: enum, values: [ethernet, lag, loopback, management, other] }
         admin_status: { type: enum, values: [up, down] }
         oper_status: { type: enum, values: [up, down, unknown] }
@@ -51,7 +51,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         interface: { type: ref, target: apstra.interface }
         peer_device: { type: ref, target: apstra.device }
         peer_interface: { type: ref, target: apstra.interface }

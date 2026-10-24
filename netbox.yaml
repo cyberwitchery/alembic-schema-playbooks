@@ -6,7 +6,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         parent: { type: ref, target: tenancy.tenantgroup }
         description: { type: text }
         tags: { type: list, item: { type: string } }
@@ -16,7 +16,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         group: { type: ref, target: tenancy.tenantgroup }
         description: { type: text }
         tags: { type: list, item: { type: string } }
@@ -26,7 +26,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         parent: { type: ref, target: dcim.region }
         description: { type: text }
         tags: { type: list, item: { type: string } }
@@ -36,7 +36,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         parent: { type: ref, target: dcim.sitegroup }
         description: { type: text }
         tags: { type: list, item: { type: string } }
@@ -46,7 +46,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         status: { type: enum, values: [active, planned, staged, decommissioning] }
         region: { type: ref, target: dcim.region }
         group: { type: ref, target: dcim.sitegroup }
@@ -61,8 +61,8 @@ schema:
         site: { type: ref, target: dcim.site }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        site: { type: ref, target: dcim.site, required: true }
+        name: { type: string }
+        site: { type: ref, target: dcim.site }
         parent: { type: ref, target: dcim.location }
         status: { type: enum, values: [active, planned, staged, decommissioning] }
         description: { type: text }
@@ -72,7 +72,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         site: { type: ref, target: dcim.site }
         parent: { type: ref, target: dcim.rackgroup }
         description: { type: text }
@@ -82,8 +82,8 @@ schema:
         site: { type: ref, target: dcim.site }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        site: { type: ref, target: dcim.site, required: true }
+        name: { type: string }
+        site: { type: ref, target: dcim.site }
         group: { type: ref, target: dcim.rackgroup }
         location: { type: ref, target: dcim.location }
         status: { type: enum, values: [active, planned, staged, decommissioning] }
@@ -99,7 +99,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         slug: { type: slug }
         color: { type: string }
         description: { type: text }
@@ -109,7 +109,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         description: { type: text }
 
     dcim.devicetype:
@@ -118,7 +118,7 @@ schema:
       fields:
         manufacturer: { type: ref, target: dcim.manufacturer }
         model: { type: string }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         part_number: { type: string }
         u_height: { type: int }
         is_full_depth: { type: bool }
@@ -130,7 +130,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         color: { type: string }
         description: { type: text }
 
@@ -139,7 +139,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         manufacturer: { type: ref, target: dcim.manufacturer }
         description: { type: text }
 
@@ -147,7 +147,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         domain: { type: string }
         master: { type: ref, target: dcim.device }
 
@@ -156,8 +156,8 @@ schema:
         site: { type: ref, target: dcim.site }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        site: { type: ref, target: dcim.site, required: true }
+        name: { type: string }
+        site: { type: ref, target: dcim.site }
         location: { type: ref, target: dcim.location }
         rack: { type: ref, target: dcim.rack }
         position: { type: int }
@@ -178,8 +178,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         position: { type: string }
         description: { type: text }
 
@@ -188,8 +188,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         module_bay: { type: ref, target: dcim.modulebay }
         module_type: { type: ref, target: dcim.moduletype }
         serial: { type: string }
@@ -201,7 +201,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         manufacturer: { type: ref, target: dcim.manufacturer }
         part_number: { type: string }
         description: { type: text }
@@ -211,8 +211,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         installed_device: { type: ref, target: dcim.device }
         description: { type: text }
 
@@ -221,8 +221,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         manufacturer: { type: ref, target: dcim.manufacturer }
         part_id: { type: string }
         serial: { type: string }
@@ -234,8 +234,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         type: { type: enum, values: [ethernet, lag, virtual, loopback, management, other] }
         enabled: { type: bool }
         mtu: { type: int }
@@ -250,8 +250,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         type: { type: string }
         description: { type: text }
 
@@ -260,8 +260,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         type: { type: string }
         description: { type: text }
 
@@ -270,8 +270,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         type: { type: string }
         description: { type: text }
 
@@ -280,8 +280,8 @@ schema:
         device: { type: ref, target: dcim.device }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        device: { type: ref, target: dcim.device, required: true }
+        name: { type: string }
+        device: { type: ref, target: dcim.device }
         power_port: { type: ref, target: dcim.powerport }
         feed_leg: { type: string }
         type: { type: string }
@@ -292,8 +292,8 @@ schema:
         site: { type: ref, target: dcim.site }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        site: { type: ref, target: dcim.site, required: true }
+        name: { type: string }
+        site: { type: ref, target: dcim.site }
         location: { type: ref, target: dcim.location }
         description: { type: text }
 
@@ -302,8 +302,8 @@ schema:
         power_panel: { type: ref, target: dcim.powerpanel }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        power_panel: { type: ref, target: dcim.powerpanel, required: true }
+        name: { type: string }
+        power_panel: { type: ref, target: dcim.powerpanel }
         rack: { type: ref, target: dcim.rack }
         status: { type: enum, values: [active, planned, staged, decommissioning] }
         type: { type: string }
@@ -319,7 +319,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         description: { type: text }
 
     ipam.role:
@@ -327,14 +327,14 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         description: { type: text }
 
     ipam.vrf:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         route_distinguisher: { type: string }
         description: { type: text }
         tenant: { type: ref, target: tenancy.tenant }
@@ -344,7 +344,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         description: { type: text }
 
     ipam.vrfroutetarget:
@@ -352,14 +352,14 @@ schema:
         vrf: { type: ref, target: ipam.vrf }
         route_target: { type: ref, target: ipam.routetarget }
       fields:
-        vrf: { type: ref, target: ipam.vrf, required: true }
-        route_target: { type: ref, target: ipam.routetarget, required: true }
+        vrf: { type: ref, target: ipam.vrf }
+        route_target: { type: ref, target: ipam.routetarget }
 
     ipam.aggregate:
       key:
         prefix: { type: prefix }
       fields:
-        prefix: { type: prefix, required: true }
+        prefix: { type: prefix }
         rir: { type: ref, target: ipam.rir }
         status: { type: enum, values: [active, reserved, deprecated] }
         description: { type: text }
@@ -368,7 +368,7 @@ schema:
       key:
         prefix: { type: prefix }
       fields:
-        prefix: { type: prefix, required: true }
+        prefix: { type: prefix }
         site: { type: ref, target: dcim.site }
         vrf: { type: ref, target: ipam.vrf }
         tenant: { type: ref, target: tenancy.tenant }
@@ -382,7 +382,7 @@ schema:
       key:
         address: { type: ip_address }
       fields:
-        address: { type: ip_address, required: true }
+        address: { type: ip_address }
         status: { type: enum, values: [active, reserved, deprecated] }
         role: { type: enum, values: [loopback, management, secondary, anycast, vip, vrrp] }
         assigned_object: { type: string }
@@ -395,7 +395,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         slug: { type: slug }
         description: { type: text }
         site: { type: ref, target: dcim.site }
@@ -404,7 +404,7 @@ schema:
       key:
         vid: { type: int }
       fields:
-        vid: { type: int, required: true }
+        vid: { type: int }
         name: { type: string, required: true }
         status: { type: enum, values: [active, reserved, deprecated] }
         role: { type: ref, target: ipam.role }
@@ -418,21 +418,21 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         description: { type: text }
 
     virtualization.clustertype:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         description: { type: text }
 
     virtualization.cluster:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         type: { type: ref, target: virtualization.clustertype, required: true }
         group: { type: ref, target: virtualization.clustergroup }
         site: { type: ref, target: dcim.site }
@@ -443,7 +443,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         cluster: { type: ref, target: virtualization.cluster }
         role: { type: ref, target: dcim.devicerole }
         platform: { type: ref, target: dcim.platform }
@@ -460,8 +460,8 @@ schema:
         virtual_machine: { type: ref, target: virtualization.virtualmachine }
         name: { type: string }
       fields:
-        name: { type: string, required: true }
-        virtual_machine: { type: ref, target: virtualization.virtualmachine, required: true }
+        name: { type: string }
+        virtual_machine: { type: ref, target: virtualization.virtualmachine }
         enabled: { type: bool }
         mtu: { type: int }
         mac_address: { type: mac }
@@ -473,7 +473,7 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         account: { type: string }
         description: { type: text }
         tags: { type: list, item: { type: string } }
@@ -482,7 +482,7 @@ schema:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         provider: { type: ref, target: circuits.provider }
         description: { type: text }
 
@@ -491,14 +491,14 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         description: { type: text }
 
     circuits.circuit:
       key:
         cid: { type: string }
       fields:
-        cid: { type: string, required: true }
+        cid: { type: string }
         provider: { type: ref, target: circuits.provider, required: true }
         type: { type: ref, target: circuits.circuittype, required: true }
         status: { type: enum, values: [active, planned, staged, decommissioning] }
@@ -511,8 +511,8 @@ schema:
         circuit: { type: ref, target: circuits.circuit }
         term_side: { type: enum, values: [A, Z] }
       fields:
-        circuit: { type: ref, target: circuits.circuit, required: true }
-        term_side: { type: enum, values: [A, Z], required: true }
+        circuit: { type: ref, target: circuits.circuit }
+        term_side: { type: enum, values: [A, Z] }
         site: { type: ref, target: dcim.site }
         location: { type: ref, target: dcim.location }
         provider_network: { type: ref, target: circuits.providernetwork }
@@ -525,21 +525,21 @@ schema:
         slug: { type: slug }
       fields:
         name: { type: string, required: true }
-        slug: { type: slug, required: true }
+        slug: { type: slug }
         description: { type: text }
 
     wireless.wirelesslangroup:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         description: { type: text }
 
     wireless.wirelesslan:
       key:
         name: { type: string }
       fields:
-        name: { type: string, required: true }
+        name: { type: string }
         group: { type: ref, target: wireless.wirelesslangroup }
         ssid: { type: string }
         status: { type: enum, values: [active, planned, staged, decommissioning] }

@@ -1,0 +1,8 @@
+# rule: a key field must not be nullable
+schema:
+  types:
+    net.thing:
+      key:
+        name: { type: string, nullable: true }
+      fields:
+        name: { type: string, nullable: true }

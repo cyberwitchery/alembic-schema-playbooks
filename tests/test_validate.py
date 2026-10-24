@@ -13,7 +13,6 @@ PLAYBOOKS = sorted(REPO_ROOT.glob("*.yaml"))
 
 VALID_CASES = [
     "minimal.yaml",
-    "list_item_metadata.yaml",
     "shared_anchor.yaml",
     "merge_override.yaml",
 ]
@@ -51,11 +50,12 @@ INVALID_CASES = [
     ("duplicate_field.yaml", "duplicate key 'name'"),
     ("merge_duplicate_field.yaml", "duplicate key 'name'"),
     ("key_fields_disagree.yaml", "'key' and 'fields' disagree on 'type'"),
-    ("list_item_disagree.yaml", "'key' and 'fields' disagree on 'target'"),
     ("empty_key.yaml", "'key' must declare at least one field"),
     ("undotted_type_name.yaml", "type name must be '<namespace>.<type>'"),
     ("bad_yaml.yaml", "YAML parse error"),
     ("self_nesting_item.yaml", "field spec nests itself"),
+    ("nullable_key.yaml", "key field may not be nullable"),
+    ("list_ref_key.yaml", "key field may not be a list_ref"),
 ]
 
 
@@ -178,25 +178,49 @@ def test_key_and_fields_enum_values_are_compared_by_type(
     assert validate.validate_file(playbook) == expected
 
 
-def test_key_and_fields_may_differ_on_metadata(tmp_path):
-    # every shipped playbook marks 'required' only under 'fields'
+# (id, key extras, fields extras, the two as reported, or None if they agree)
+METADATA_CASES = [
+    (
+        "required, first of two",
+        "",
+        ", required: true, description: d",
+        "'required': False vs True",
+    ),
+    ("absent is false", "", ", required: false", None),
+    ("nullable", "", ", nullable: true", "'nullable': False vs True"),
+    ("format", ", format: slug", "", "'format': 'slug' vs None"),
+    ("pattern", ", pattern: a", ", pattern: b", "'pattern': 'a' vs 'b'"),
+    ("description", "", ", description: d", "'description': None vs 'd'"),
+]
+
+
+@pytest.mark.parametrize(
+    "key_extra,field_extra,shown",
+    [c[1:] for c in METADATA_CASES],
+    ids=[c[0] for c in METADATA_CASES],
+)
+def test_key_and_fields_must_agree_on_metadata(tmp_path, key_extra, field_extra, shown):
     playbook = tmp_path / "m.yaml"
     playbook.write_text(
         "schema:\n  types:\n    a.b:\n"
-        "      key: {x: {type: enum, values: [one, two]}}\n"
-        "      fields: {x: {type: enum, values: [one, two], required: true}}\n"
+        f"      key: {{x: {{type: enum, values: [one, two]{key_extra}}}}}\n"
+        f"      fields: {{x: {{type: enum, values: [one, two]{field_extra}}}}}\n"
     )
-    assert validate.validate_file(playbook) == []
+    disagreement = "m.yaml: a.b.x: 'key' and 'fields' disagree on "
+    expected = [] if shown is None else [disagreement + shown]
+    assert validate.validate_file(playbook) == expected
 
 
-def test_key_and_fields_may_differ_on_metadata_inside_a_list_item(tmp_path):
+def test_key_and_fields_list_items_are_compared_without_metadata(tmp_path):
     playbook = tmp_path / "i.yaml"
     playbook.write_text(
         "schema:\n  types:\n    a.b:\n"
         "      key: {t: {type: list, item: {type: string}}}\n"
         "      fields: {t: {type: list, item: {type: string, required: true}}}\n"
     )
-    assert validate.validate_file(playbook) == []
+    assert validate.validate_file(playbook) == [
+        "i.yaml: a.b.t: key field may not be a list"
+    ]
 
 
 def test_key_and_fields_list_item_type_disagreement_is_rejected(tmp_path):
@@ -207,7 +231,8 @@ def test_key_and_fields_list_item_type_disagreement_is_rejected(tmp_path):
         "      fields: {t: {type: list, item: {type: int}}}\n"
     )
     assert validate.validate_file(playbook) == [
-        "n.yaml: a.b.t.item: 'key' and 'fields' disagree on 'type': 'string' vs 'int'"
+        "n.yaml: a.b.t: key field may not be a list",
+        "n.yaml: a.b.t.item: 'key' and 'fields' disagree on 'type': 'string' vs 'int'",
     ]
 
 
@@ -224,7 +249,10 @@ def test_key_and_fields_nested_list_item_is_compared_at_depth(tmp_path):
         "z.yaml: a.b.t.item.item: 'key' and 'fields' disagree on 'values': "
         "['one'] vs ['two']"
     )
-    assert validate.validate_file(playbook) == [expected]
+    assert validate.validate_file(playbook) == [
+        "z.yaml: a.b.t: key field may not be a list",
+        expected,
+    ]
 
 
 def test_malformed_list_item_is_reported_once(tmp_path):
@@ -235,7 +263,8 @@ def test_malformed_list_item_is_reported_once(tmp_path):
         "      fields: {t: {type: list}}\n"
     )
     assert validate.validate_file(playbook) == [
-        "o.yaml: a.b.t: list requires 'item.type'"
+        "o.yaml: a.b.t: list requires 'item.type'",
+        "o.yaml: a.b.t: key field may not be a list",
     ]
 
 
@@ -251,6 +280,7 @@ def test_self_nesting_key_and_fields_specs_are_reported_not_crashed(tmp_path):
     assert validate.validate_file(playbook) == [
         "s.yaml: a.b.n.item: field spec nests itself",
         "s.yaml: a.b.n.item: field spec nests itself",
+        "s.yaml: a.b.n: key field may not be a list",
     ]
 
 

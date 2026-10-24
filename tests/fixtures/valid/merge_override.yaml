@@ -5,7 +5,7 @@ schema:
       key:
         name: { type: string }
       fields: &common
-        name: { type: string, required: true }
+        name: { type: string }
         description: { type: text }
 
     net.other:
@@ -13,4 +13,4 @@ schema:
         name: { type: text }
       fields:
         <<: *common
-        name: { type: text, required: true }
+        name: { type: text }
