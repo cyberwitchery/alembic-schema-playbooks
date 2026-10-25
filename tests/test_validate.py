@@ -286,6 +286,24 @@ FIELD_SPEC_CASES = [
     ),
     ("format", "{type: string, format: bogus}", ["a.b.s: unknown format 'bogus'"]),
     (
+        "constraints on a non-string type",
+        "{type: int, format: slug, pattern: a}",
+        [
+            "a.b.s: 'format' does not apply to type 'int'",
+            "a.b.s: 'pattern' does not apply to type 'int'",
+        ],
+    ),
+    (
+        "format conflicting with the type's own check",
+        "{type: slug, format: uuid}",
+        ["a.b.s: format 'uuid' conflicts with type 'slug'"],
+    ),
+    (
+        "pattern that does not compile",
+        "{type: string, pattern: '('}",
+        ["a.b.s: pattern '(' does not compile"],
+    ),
+    (
         "enum values",
         "{type: enum, values: [a, 1e3]}",
         ["a.b.s: enum values must be strings"],

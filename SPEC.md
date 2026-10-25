@@ -171,10 +171,25 @@ exits non-zero if any playbook is invalid. the rules are:
     otherwise: `non-finite float '<text>'`.
 20. **no null keys** — no mapping key is null. the first one is reported and
     parsing of that file stops. otherwise: `mapping key may not be null`.
+21. **constraints on strings only** — `format` and `pattern` constrain a string,
+    so neither appears on an `int`, `float`, `bool`, `list` or `list_ref` field.
+    each one present is reported. otherwise:
+    `'<attr>' does not apply to type '<type>'`.
+22. **format agrees with type** — a `slug`, `mac` or `prefix` field already
+    checks the shape of its value, so a `format` on one is that same check:
+    `slug` on a `slug`, `mac` on a `mac`, and `prefix` or `cidr` on a `prefix`.
+    a `string`, `text`, `ip_address`, `enum` or `ref` field takes any format.
+    otherwise: `format '<format>' conflicts with type '<type>'`.
+23. **pattern compiles** — alembic compiles a `pattern` with Rust's `regex`
+    crate when it loads a playbook, and rejects one that does not compile. the
+    validator catches only two such mistakes: a pattern that starts with `*`,
+    `+` or `?`, and one with no `[`, `\` or `#` whose parentheses do not
+    balance. any other syntax error is left to alembic. otherwise:
+    `pattern '<pattern>' does not compile`.
 
 rules 3–7, 13 and 16 apply to every field spec, including those under `key` and
-those nested in a `list` item; rules 17 and 18 apply wherever metadata may
-appear. rule 10 likewise compares a key field's two declarations at every depth.
+those nested in a `list` item; rules 17, 18 and 21–23 apply wherever metadata
+may appear. rule 10 likewise compares a key field's two declarations at every depth.
 rules 14 and 15 look only at the spec under `key`, and rule 10 holds the
 `fields` copy to it. rule 10 completes rule 8: rule 8 requires a key field to be
 declared under `fields` at all, rule 10 requires the two declarations to say the
