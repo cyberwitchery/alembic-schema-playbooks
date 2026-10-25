@@ -60,6 +60,16 @@ DEFINING_KEYS = {
 # the ``format`` values alembic accepts.
 FORMATS = frozenset({"slug", "ip_address", "cidr", "prefix", "mac", "uuid"})
 
+# types whose values are never strings, so a ``format`` or ``pattern`` cannot apply.
+NON_STRING_TYPES = frozenset({"int", "float", "bool", "list", "list_ref"})
+
+# for each type that checks its value's shape itself, the formats that are that same check.
+OWN_FORMATS = {
+    "slug": frozenset({"slug"}),
+    "mac": frozenset({"mac"}),
+    "prefix": frozenset({"cidr", "prefix"}),
+}
+
 
 def validate_field_spec(
     errors: list[str],
@@ -104,7 +114,7 @@ def validate_field_spec(
         if key not in allowed:
             errors.append(f"{file}: {label}: unknown key '{key}'")
     if not is_item:
-        validate_metadata(errors, file, label, spec)
+        validate_metadata(errors, file, label, ftype, spec)
 
     if ftype == "enum":
         values = spec.get("values")
@@ -137,8 +147,10 @@ def validate_field_spec(
             )
 
 
-def validate_metadata(errors: list[str], file: str, label: str, spec: dict) -> None:
-    """Check that a field spec's metadata has the types alembic reads it as."""
+def validate_metadata(
+    errors: list[str], file: str, label: str, ftype: str, spec: dict
+) -> None:
+    """Check a field spec's metadata as alembic reads it and checks it at load."""
     for attr in ("required", "nullable"):
         if attr in spec and not isinstance(spec[attr], bool):
             errors.append(f"{file}: {label}: '{attr}' must be a boolean")
@@ -146,8 +158,42 @@ def validate_metadata(errors: list[str], file: str, label: str, spec: dict) -> N
         if attr in spec and not isinstance(spec[attr], str):
             errors.append(f"{file}: {label}: '{attr}' must be a string")
     fmt = spec.get("format")
-    if isinstance(fmt, str) and fmt not in FORMATS:
-        errors.append(f"{file}: {label}: unknown format '{fmt}'")
+    if isinstance(fmt, str):
+        if fmt not in FORMATS:
+            errors.append(f"{file}: {label}: unknown format '{fmt}'")
+        elif fmt not in OWN_FORMATS.get(ftype, FORMATS):
+            errors.append(
+                f"{file}: {label}: format '{fmt}' conflicts with type '{ftype}'"
+            )
+    if ftype in NON_STRING_TYPES:
+        for attr in ("format", "pattern"):
+            if attr in spec:
+                errors.append(
+                    f"{file}: {label}: '{attr}' does not apply to type '{ftype}'"
+                )
+    pattern = spec.get("pattern")
+    if isinstance(pattern, str) and _never_compiles(pattern):
+        errors.append(f"{file}: {label}: pattern '{pattern}' does not compile")
+
+
+def _never_compiles(pattern: str) -> bool:
+    """True if ``pattern`` starts with a repetition or has unbalanced parentheses.
+
+    Parentheses count only in a pattern with no ``[``, ``\\`` or ``#`` to hide one.
+    """
+    if pattern.startswith(("*", "+", "?")):
+        return True
+    if any(char in pattern for char in "[\\#"):
+        return False
+    depth = 0
+    for char in pattern:
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth < 0:
+                return True
+    return depth > 0
 
 
 def _same_value(a: object, b: object) -> bool:
